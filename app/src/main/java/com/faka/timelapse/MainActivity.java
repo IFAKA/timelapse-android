@@ -63,7 +63,7 @@ public class MainActivity extends Activity {
         add.setTypeface(null, android.graphics.Typeface.BOLD);
         add.setTextColor(Ui.BG); add.setBackground(Ui.pill(this, Ui.AMBER, 30));
         add.setStateListAnimator(null); add.setPadding(pad * 2, 0, pad * 2, 0);
-        add.setOnClickListener(v -> startActivity(new Intent(this, RecordActivity.class)));
+        Ui.press(add).setOnClickListener(v -> startActivity(new Intent(this, RecordActivity.class)));
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-2, Ui.dp(this, 60), Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
         lp.bottomMargin = Ui.dp(this, 24);
         fl.addView(add, lp);
@@ -137,7 +137,7 @@ public class MainActivity extends Activity {
             }
             r.addView(c, new LinearLayout.LayoutParams(0, -2, 1));
             r.addView(Ui.text(this, "›", 22, Ui.DIM));
-            r.setOnClickListener(v -> startActivity(new Intent(this, DetailActivity.class).putExtra("session", s.id)));
+            Ui.press(r).setOnClickListener(v -> startActivity(new Intent(this, DetailActivity.class).putExtra("session", s.id)));
             list.addView(r);
             list.addView(Ui.hairline(this));
             Ui.IO.execute(() -> {

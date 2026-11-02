@@ -42,8 +42,12 @@ public class WebService extends Service {
     static String key(Context c) {
         SharedPreferences sp = c.getSharedPreferences("tl", MODE_PRIVATE);
         String k = sp.getString("webkey", null);
-        if (k == null) {
-            k = String.format(Locale.US, "%06d", new Random().nextInt(1000000));
+        if (k == null || k.length() < 12) {        // 12 letters and digits: not guessable from another device on the Wi-Fi
+            String abc = "abcdefghjkmnpqrstuvwxyz23456789";
+            java.security.SecureRandom r = new java.security.SecureRandom();
+            StringBuilder b = new StringBuilder();
+            for (int i = 0; i < 12; i++) b.append(abc.charAt(r.nextInt(abc.length())));
+            k = b.toString();
             sp.edit().putString("webkey", k).apply();
         }
         return k;

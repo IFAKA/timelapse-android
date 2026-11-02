@@ -52,7 +52,7 @@ public class RecordActivity extends Activity {
                 final int k = i;
                 TextView t = Ui.text(RecordActivity.this, labels[i], 15, Ui.TXT);
                 t.setGravity(Gravity.CENTER);
-                t.setOnClickListener(x -> { select(k); on.accept(k); });
+                Ui.press(t).setOnClickListener(x -> { select(k); on.accept(k); });
                 LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, Ui.dp(RecordActivity.this, 44), 1);
                 lp.setMarginEnd(i < labels.length - 1 ? Ui.dp(RecordActivity.this, 6) : 0);
                 row.addView(t, lp);
@@ -83,7 +83,7 @@ public class RecordActivity extends Activity {
         TextView t = Ui.text(this, "", 17, Ui.AMBER);
         t.setGravity(Gravity.CENTER);
         t.setBackground(Ui.pill(this, Ui.LINE, 10));
-        t.setOnClickListener(v -> pick.run());
+        Ui.press(t).setOnClickListener(v -> pick.run());
         return t;
     }
 
@@ -193,10 +193,10 @@ public class RecordActivity extends Activity {
         mid.addView(shots, sl);
         root.addView(mid);
 
-        main.setOnClickListener(v -> {
+        Ui.press(main).setOnClickListener(v -> {
             if (running) stopAndOpen(); else start(endAtMs(), intervalSec(endAtMs() - System.currentTimeMillis()));
         });
-        dailyBtn.setOnClickListener(v -> toggleDaily());
+        Ui.press(dailyBtn).setOnClickListener(v -> toggleDaily());
         setContentView(sv);
         requestPermissions(new String[]{Manifest.permission.CAMERA, Manifest.permission.POST_NOTIFICATIONS}, 1);
         handle(getIntent());
@@ -243,17 +243,26 @@ public class RecordActivity extends Activity {
         save();
         if (Daily.on(this)) { Daily.disable(this); refresh(); return; }
         if (!getSystemService(android.app.AlarmManager.class).canScheduleExactAlarms()) {
-            Toast.makeText(this, "Allow alarms for Timelapse, then press again", Toast.LENGTH_LONG).show();
-            startActivity(new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:" + getPackageName())));
+            ask("Allow alarms", "So the phone can wake up at your start time, even when it is locked.",
+                    Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);
             return;
         }
         if (!Settings.canDrawOverlays(this)) {
-            Toast.makeText(this, "Allow \"Display over other apps\" so it can start the camera while you sleep, then press again", Toast.LENGTH_LONG).show();
-            startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName())));
+            ask("Allow display over other apps", "Android only lets an app use the camera in the background if it can show a screen. "
+                    + "Nothing is shown. It only starts the recording while you sleep.", Settings.ACTION_MANAGE_OVERLAY_PERMISSION);
             return;
         }
         Daily.enable(this);
+        Toast.makeText(this, "Daily is on. Next run: " + clock(Daily.nextStart(this)), Toast.LENGTH_LONG).show();
         refresh();
+    }
+
+    /** Say why a permission is needed before sending the user to the Android settings page for it. */
+    void ask(String title, String why, String action) {
+        new android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert).setTitle(title)
+                .setMessage(why + "\n\nThen come back and press the button again.")
+                .setPositiveButton("Open settings", (d, w) -> startActivity(new Intent(action, Uri.parse("package:" + getPackageName()))))
+                .setNegativeButton("Not now", null).show();
     }
 
     void stopAndOpen() {

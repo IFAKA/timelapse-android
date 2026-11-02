@@ -10,8 +10,8 @@ Put the phone on a stand. It takes photos on its own, even with the screen locke
   Old timelapses are deleted after 7, 14 or 30 days.
 
 ## Control from your computer
-The Library shows a link like `http://192.168.1.50:8080/?k=123456` (same Wi-Fi). Tap it to copy. The page can start and stop,
-set the daily plan, watch and download videos, rename and delete. The 6-digit key in the link is the password.
+The Library shows a link like `http://192.168.1.50:8080/?k=<key>` (same Wi-Fi). Tap it to copy. The page can start and stop,
+set the daily plan, watch and download videos, rename and delete. The 12-character key in the link is the password.
 
 ## How it works
 - Interval = video seconds x 24 fps, spread over the run length (min 3 s, max 300 s).

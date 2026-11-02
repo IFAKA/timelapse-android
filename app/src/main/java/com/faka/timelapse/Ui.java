@@ -22,6 +22,20 @@ final class Ui {
             AMBER = 0xFFFFB020, RED = 0xFFFF5A47;
     static final ExecutorService IO = Executors.newFixedThreadPool(2);
 
+    /** Press feedback: the view shrinks a little while a finger is on it, and springs back fast. */
+    @android.annotation.SuppressLint("ClickableViewAccessibility")
+    static <T extends View> T press(T v) {
+        v.setOnTouchListener((x, e) -> {
+            int a = e.getActionMasked();
+            if (a == android.view.MotionEvent.ACTION_DOWN) x.animate().scaleX(0.97f).scaleY(0.97f).setDuration(120)
+                    .setInterpolator(new android.view.animation.DecelerateInterpolator(2)).start();
+            else if (a == android.view.MotionEvent.ACTION_UP || a == android.view.MotionEvent.ACTION_CANCEL) x.animate().scaleX(1).scaleY(1).setDuration(160)
+                    .setInterpolator(new android.view.animation.DecelerateInterpolator(2)).start();
+            return false;
+        });
+        return v;
+    }
+
     static int dp(Context c, int v) { return Math.round(v * c.getResources().getDisplayMetrics().density); }
 
     static void window(Activity a) {
