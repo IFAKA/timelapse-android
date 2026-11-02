@@ -155,7 +155,7 @@ function home(){
 function detail(){
   const s=S.sessions.find(x=>x.id===cur);if(!s){view='home';return home()}
   const mine=S.videoSession===cur,busy=S.videoBusy&&mine;
-  const note=mine&&S.videoText&&(busy||!s.video||S.videoText.startsWith('Saved'))?S.videoText:s.video?'Video ready.':'No video yet. It is built from these photos, 24 per second.';
+  const note=mine&&S.videoText&&(busy||!s.video||S.videoText.startsWith('Saved'))?S.videoText:s.video?'Video ready.':'The video is made by itself when filming ends.';
   if(frames!==s.count){frames=s.count;frameIdx=-1}
   if(frameIdx<0)frameIdx=s.count-1;
   if(!tab||(tab==='video'&&!s.video))tab=s.video?'video':'photos';
@@ -165,7 +165,6 @@ function detail(){
   if(tab==='video')h+=`<div class="stage"><video controls autoplay loop preload="metadata" src="/video/${s.id}.mp4"></video></div>`;
   else h+=`<div class="stage"><img id="fr" src="/api/frame?s=${s.id}&i=${frameIdx}"></div><input type="range" min="0" max="${s.count-1}" value="${frameIdx}" oninput="scrub(this.value)"><div class="caps" id="fl">Frame ${frameIdx+1} of ${s.count} · arrow keys to step</div>`;
   h+=`</div><div class="side2"><div class="caps" style="margin:6px 0 10px">Video</div><p class="dim" style="font-size:14px;margin:0 0 8px">${esc(note)}</p>`;
-  h+=`<button onclick="makeV('${s.id}')" ${S.videoBusy?'disabled':''}>${s.video?'Make video again':'Make video'}</button>`;
   if(busy)h+='<button onclick="api(\'/api/cancel\',\'POST\')">Cancel</button>';
   if(s.video)h+=`<a href="/video/${s.id}.mp4?dl=1">Download video</a>`;
   h+=`<button onclick="rename('${s.id}')">Rename</button><button class="danger" onclick="del('${s.id}')">Delete timelapse</button></div></div>`;

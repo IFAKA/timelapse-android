@@ -341,7 +341,7 @@ public class RecordActivity extends Activity {
     void stopAndOpen() {
         SharedPreferences s = getSharedPreferences("tl_state", MODE_PRIVATE);
         String sid = s.getString("session", ""); int n = s.getInt("count", 0);
-        Plan.stop(this);
+        Plan.stop(this, true);
         wasRunning = false; running = false;
         if (n > 0 && !sid.isEmpty()) startActivity(new Intent(this, DetailActivity.class).putExtra("session", sid));
         finish();

@@ -54,9 +54,16 @@ final class Plan {
         alarm(c, "RUN", System.currentTimeMillis() + 300);
     }
 
-    static void stop(Context c) {
+    static void stop(Context c) { stop(c, false); }
+
+    /** Stop filming. With build = true the video of this run is made right away. */
+    static void stop(Context c, boolean build) {
+        String sid = c.getSharedPreferences("tl_state", Context.MODE_PRIVATE).getString("session", "");
         c.stopService(new Intent(c, TimelapseService.class));
         c.getSharedPreferences("tl_state", Context.MODE_PRIVATE).edit().putString("status", "STOPPED").apply();
+        if (build && !sid.isEmpty()) Ui.IO.execute(() -> {
+            if (!VideoService.working && Media.video(c, sid) == null && !Media.photos(c, sid, false).isEmpty()) makeVideo(c, sid);
+        });
     }
 
     static void makeVideo(Context c, String id) {

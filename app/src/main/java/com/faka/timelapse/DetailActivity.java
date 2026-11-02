@@ -23,7 +23,7 @@ public class DetailActivity extends Activity {
     ImageView frame;
     SeekBar seek;
     TextView title, meta, frameLabel, videoText;
-    TextView make, cancel, share;
+    TextView cancel, share;
     VideoView player;
     TextView tabVideo, tabPhotos, playMark;
     View tabsRow;
@@ -103,17 +103,12 @@ public class DetailActivity extends Activity {
         root.addView(Ui.hairline(this));
         LinearLayout acts = new LinearLayout(this);
         acts.setPadding(Ui.dp(this, 12), 0, Ui.dp(this, 12), Ui.dp(this, 4));
-        make = action("MAKE VIDEO", Ui.AMBER);
         cancel = action("CANCEL", Ui.TXT);
         share = action("SHARE", Ui.TXT);
         TextView del = action("DELETE", Ui.RED);
-        for (TextView x : new TextView[]{make, cancel, share, del}) acts.addView(x, new LinearLayout.LayoutParams(0, Ui.dp(this, 52), 1));
+        for (TextView x : new TextView[]{cancel, share, del}) acts.addView(x, new LinearLayout.LayoutParams(0, Ui.dp(this, 52), 1));
         root.addView(acts);
 
-        make.setOnClickListener(v -> {
-            Plan.makeVideo(this, id);
-            refresh();
-        });
         cancel.setOnClickListener(v -> startService(new Intent(this, VideoService.class).setAction("CANCEL")));
         share.setOnClickListener(v -> {
             Uri u = Media.video(this, id);
@@ -151,6 +146,7 @@ public class DetailActivity extends Activity {
                 if (p.isEmpty()) { finish(); return; }
                 meta.setText(p.size() + " PHOTOS  ·  " + Ui.duration(f == null ? 0 : f.endMs - f.startMs).toUpperCase());
                 setMode(hasVideo && !userChoseMode ? true : videoMode && hasVideo);
+                if (!hasVideo && !VideoService.working && !Ui.recordingAlive(this)) Plan.makeVideo(this, id);   // the video builds by itself
                 refresh();
             });
         });
@@ -191,9 +187,7 @@ public class DetailActivity extends Activity {
         boolean busyMine = VideoService.working && mine;
         String v = s.getString("video", "");
         videoText.setText(mine && !v.isEmpty() && !v.equals("-") && (busyMine || !hasVideo || v.startsWith("Saved")) ? v
-                : hasVideo ? "Video ready." : "No video yet. It is built from these photos, 24 per second.");
-        make.setText(hasVideo ? "MAKE AGAIN" : "MAKE VIDEO");
-        make.setEnabled(!VideoService.working); make.setAlpha(make.isEnabled() ? 1f : 0.35f);
+                : hasVideo ? "Video ready." : "Making the video from these photos...");
         cancel.setVisibility(busyMine ? View.VISIBLE : View.GONE);
         share.setVisibility(hasVideo ? View.VISIBLE : View.GONE);
         tabsRow.setVisibility(hasVideo ? View.VISIBLE : View.GONE);

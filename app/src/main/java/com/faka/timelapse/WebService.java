@@ -338,7 +338,7 @@ public class WebService extends Service {
                 json(out, new JSONObject().put("ok", true));
                 return;
             }
-            case "/api/stop": if (!post) break; Plan.stop(this); json(out, new JSONObject().put("ok", true)); return;
+            case "/api/stop": if (!post) break; Plan.stop(this, true); json(out, new JSONObject().put("ok", true)); return;
             case "/api/makevideo": if (!post || sid == null) break; Plan.makeVideo(this, sid); json(out, new JSONObject().put("ok", true)); return;
             case "/api/cancel": if (!post) break; startService(new Intent(this, VideoService.class).setAction("CANCEL")); json(out, new JSONObject().put("ok", true)); return;
             case "/api/rename": if (!post || sid == null) break; Media.setName(this, sid, q.getOrDefault("name", "")); json(out, new JSONObject().put("ok", true)); return;
