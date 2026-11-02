@@ -10,7 +10,7 @@ h2{font-weight:300;font-size:30px;margin:0}
 .caps{font-size:11px;letter-spacing:.18em;font-weight:700;color:var(--dim);text-transform:uppercase}
 .dim{color:var(--dim)}
 /* desktop first: controls on the left, library on the right */
-.shell{display:grid;grid-template-columns:340px minmax(0,1fr);gap:56px;max-width:1500px;margin:0 auto;padding:40px 48px 80px}
+.shell{display:grid;grid-template-columns:400px minmax(0,1fr);gap:48px;max-width:1500px;margin:0 auto;padding:40px 48px 80px}
 .side{position:sticky;top:40px;align-self:start;max-height:calc(100vh - 80px);overflow:auto;padding-right:4px}
 .side h1{margin-bottom:6px}
 .light{font-size:14px;color:var(--dim);margin:8px 0 8px}.light.dark{color:var(--amber)}
@@ -20,12 +20,12 @@ h2{font-weight:300;font-size:30px;margin:0}
 .live{color:var(--red)}.wait{color:var(--amber)}
 .grp{margin-top:24px}
 .chips{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
-.chip{padding:11px 16px;border-radius:10px;background:var(--line);cursor:pointer;user-select:none;touch-action:manipulation;transition:transform 160ms var(--out),background-color 160ms ease,color 160ms ease}
+.chip{padding:11px 14px;border-radius:10px;background:var(--line);cursor:pointer;user-select:none;touch-action:manipulation;transition:transform 160ms var(--out),background-color 160ms ease,color 160ms ease}
 .chip.on{background:var(--amber);color:var(--bg);font-weight:700}
 .chip:active{transform:scale(.97)}
 input[type=time]{background:var(--line);color:var(--amber);border:0;border-radius:10px;padding:11px 12px;font:inherit;width:100%}
 .two{display:flex;gap:6px}.two>*{flex:1}
-.more{margin-top:22px}.more summary{cursor:pointer;list-style:none}.more summary::-webkit-details-marker{display:none}
+.more{margin-top:22px}.more summary{cursor:pointer;list-style:none;display:inline-block;padding:4px 0}.more summary::after{content:' \02C5';font-size:13px}.more[open] summary::after{content:' \02C4'}.more summary:active{opacity:.6}.more summary::-webkit-details-marker{display:none}
 .hint{font-size:13px;color:var(--dim);margin:8px 0 0}
 .sum{margin-top:28px;font-size:17px}.sum small{display:block;color:var(--dim);font-size:13px;margin-top:4px}
 .go{display:block;width:100%;margin-top:18px;border:0;border-radius:30px;padding:19px;font:inherit;font-size:17px;font-weight:700;background:var(--amber);color:var(--bg);cursor:pointer;transition:transform 160ms var(--out),opacity 160ms ease}
