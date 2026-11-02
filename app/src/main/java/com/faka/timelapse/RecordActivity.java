@@ -4,9 +4,6 @@ import android.Manifest;
 import android.app.Activity;
 import android.app.TimePickerDialog;
 import android.content.*;
-import android.graphics.drawable.Drawable;
-import android.graphics.drawable.GradientDrawable;
-import android.graphics.drawable.LayerDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -27,11 +24,11 @@ public class RecordActivity extends Activity {
     static final int[] KEEP = {7, 14, 30};              // days to keep daily timelapses
 
     SharedPreferences sp;
-    TextView stateLabel, luxNum, summary, summary2, shots, fromBtn, toBtn, autoHint;
+    TextView title, moreBtn, stateLabel, luxNum, summary, summary2, shots, fromBtn, toBtn, autoHint;
     Ui.LightBar bar;
-    View shutter;
-    Button main, dailyBtn;
-    LinearLayout options, onceBox, dailyBox, keepBox;
+    Button main;
+    LinearLayout options, onceBox, dailyBox, keepBox, moreBox;
+    boolean moreOpen;
     Chips lenChips, vidChips, whenChips, modeChips, keepChips;
     TextView untilChip;
     int modeIdx, hoursIdx, videoIdx, keepIdx, untilH, untilM, sh, sm, eh, em;
@@ -107,27 +104,23 @@ public class RecordActivity extends Activity {
         int pad = Ui.dp(this, 24);
         root.addView(Ui.back(this, "Timelapses"));
 
-        // Light reading
+        // Title and one plain line about the light, so the user knows the camera will see something
         LinearLayout top = new LinearLayout(this);
         top.setOrientation(LinearLayout.VERTICAL);
         top.setPadding(pad, Ui.dp(this, 8), pad, 0);
         stateLabel = Ui.caps(this, "", Ui.AMBER);
-        LinearLayout numRow = new LinearLayout(this);
-        numRow.setGravity(Gravity.BOTTOM);
-        luxNum = Ui.thin(this, "0", 72);
-        TextView unit = Ui.text(this, " lux", 18, Ui.DIM); unit.setPadding(0, 0, 0, Ui.dp(this, 12));
-        numRow.addView(luxNum); numRow.addView(unit);
+        title = Ui.thin(this, "New timelapse", 34);
+        luxNum = Ui.text(this, "", 14, Ui.DIM);
+        luxNum.setPadding(0, Ui.dp(this, 10), 0, Ui.dp(this, 8));
         bar = new Ui.LightBar(this);
-        top.addView(stateLabel); top.addView(numRow);
-        top.addView(bar, new LinearLayout.LayoutParams(-1, Ui.dp(this, 28)));
+        top.addView(stateLabel); top.addView(title); top.addView(luxNum);
+        top.addView(bar, new LinearLayout.LayoutParams(-1, Ui.dp(this, 20)));
         root.addView(top);
 
-        // Options (hidden while recording)
+        // The two questions that matter. Everything has a ready-made answer, so Start works at once.
         options = new LinearLayout(this);
         options.setOrientation(LinearLayout.VERTICAL);
         options.setPadding(pad, 0, pad, 0);
-        modeChips = new Chips(new String[]{"Once", "Every day"}, modeIdx, i -> { modeIdx = i; save(); refresh(); });
-        options.addView(group("SCHEDULE", modeChips.row));
 
         lenChips = new Chips(new String[]{"1 h", "2 h", "4 h", "8 h", "12 h", "Until"}, hoursIdx, i -> {
             hoursIdx = i;
@@ -137,7 +130,7 @@ public class RecordActivity extends Activity {
         untilChip = lenChips.v[5];
         onceBox = new LinearLayout(this);
         ((LinearLayout) onceBox).setOrientation(LinearLayout.VERTICAL);
-        onceBox.addView(group("HOW LONG", lenChips.row));
+        onceBox.addView(group("FILM FOR", lenChips.row));
         options.addView(onceBox);
 
         LinearLayout tr = new LinearLayout(this);
@@ -148,55 +141,60 @@ public class RecordActivity extends Activity {
         tr.addView(fromBtn, l1); tr.addView(toBtn, new LinearLayout.LayoutParams(0, Ui.dp(this, 48), 1));
         dailyBox = new LinearLayout(this);
         ((LinearLayout) dailyBox).setOrientation(LinearLayout.VERTICAL);
-        dailyBox.addView(group("EVERY DAY, FROM AND TO", tr));
+        dailyBox.addView(group("FILM EVERY DAY", tr));
         options.addView(dailyBox);
 
         vidChips = new Chips(new String[]{"15 s", "30 s", "1 min"}, videoIdx, i -> { videoIdx = i; save(); refresh(); });
-        options.addView(group("VIDEO LENGTH", vidChips.row));
-        whenChips = new Chips(new String[]{"Auto", "Always"}, auto ? 0 : 1, i -> { auto = i == 0; save(); refresh(); });
-        LinearLayout wg = group("PHOTOS", whenChips.row);
+        options.addView(group("MAKE A VIDEO OF", vidChips.row));
+        modeChips = new Chips(new String[]{"Just once", "Every day"}, modeIdx, i -> { modeIdx = i; save(); refresh(); });
+        options.addView(group("REPEAT", modeChips.row));
+
+        // Rarely needed settings stay folded away
+        moreBtn = Ui.caps(this, "", Ui.DIM);
+        moreBtn.setPadding(0, Ui.dp(this, 26), 0, Ui.dp(this, 6));
+        Ui.press(moreBtn).setOnClickListener(v -> { moreOpen = !moreOpen; refresh(); });
+        options.addView(moreBtn);
+        moreBox = new LinearLayout(this);
+        moreBox.setOrientation(LinearLayout.VERTICAL);
+        whenChips = new Chips(new String[]{"Only when bright", "Always"}, auto ? 0 : 1, i -> { auto = i == 0; save(); refresh(); });
+        LinearLayout wg = group("TAKE PHOTOS", whenChips.row);
         autoHint = Ui.text(this, "", 13, Ui.DIM);
         autoHint.setPadding(0, Ui.dp(this, 8), 0, 0);
         wg.addView(autoHint);
-        options.addView(wg);
-
+        moreBox.addView(wg);
         keepChips = new Chips(new String[]{"7 days", "14 days", "30 days"}, keepIdx, i -> { keepIdx = i; save(); refresh(); });
-        keepBox = group("KEEP OLD TIMELAPSES", keepChips.row);
-        options.addView(keepBox);
+        keepBox = group("DELETE DAILY TIMELAPSES AFTER", keepChips.row);
+        moreBox.addView(keepBox);
+        options.addView(moreBox);
         root.addView(options);
 
-        // Plain-words summary of what will happen
+        // What will happen, in one sentence, right above the button
         LinearLayout sm_ = new LinearLayout(this);
         sm_.setOrientation(LinearLayout.VERTICAL);
         sm_.setPadding(pad, Ui.dp(this, 28), pad, 0);
-        summary = Ui.text(this, "", 17, Ui.AMBER);
+        summary = Ui.text(this, "", 17, Ui.TXT);
         summary2 = Ui.text(this, "", 13, Ui.DIM); summary2.setPadding(0, Ui.dp(this, 4), 0, 0);
         sm_.addView(summary); sm_.addView(summary2);
         root.addView(sm_);
 
-        // Shutter (one time) and daily switch
-        FrameLayout sh_ = new FrameLayout(this);
-        shutter = new View(this);
-        sh_.addView(shutter, new FrameLayout.LayoutParams(Ui.dp(this, 88), Ui.dp(this, 88), Gravity.CENTER));
-        main = new Button(this); main.setBackgroundColor(0); main.setStateListAnimator(null);
-        sh_.addView(main, new FrameLayout.LayoutParams(Ui.dp(this, 88), Ui.dp(this, 88), Gravity.CENTER));
-        dailyBtn = new Button(this);
-        dailyBtn.setAllCaps(false); dailyBtn.setTextSize(17); dailyBtn.setStateListAnimator(null);
-        dailyBtn.setTypeface(null, android.graphics.Typeface.BOLD);
-        sh_.addView(dailyBtn, new FrameLayout.LayoutParams(-1, Ui.dp(this, 60), Gravity.CENTER));
+        // One button, always labelled with what it does
+        main = new Button(this);
+        main.setAllCaps(false); main.setTextSize(18); main.setStateListAnimator(null);
+        main.setTypeface(null, android.graphics.Typeface.BOLD);
         shots = Ui.text(this, "", 14, Ui.DIM); shots.setGravity(Gravity.CENTER);
         LinearLayout mid = new LinearLayout(this);
         mid.setOrientation(LinearLayout.VERTICAL);
-        mid.setPadding(pad, Ui.dp(this, 28), pad, Ui.dp(this, 40));
-        mid.addView(sh_, new LinearLayout.LayoutParams(-1, Ui.dp(this, 88)));
+        mid.setPadding(pad, Ui.dp(this, 20), pad, Ui.dp(this, 40));
+        mid.addView(main, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60)));
         LinearLayout.LayoutParams sl = new LinearLayout.LayoutParams(-1, -2); sl.topMargin = Ui.dp(this, 14);
         mid.addView(shots, sl);
         root.addView(mid);
 
         Ui.press(main).setOnClickListener(v -> {
-            if (running) Ui.sheet(this, "Stop this run?", "The photos so far are kept, but this run cannot be continued. Daily runs still start on time.", "Stop", true, this::stopAndOpen); else start(endAtMs(), intervalSec(endAtMs() - System.currentTimeMillis()));
+            if (running) Ui.sheet(this, "Stop this run?", "The photos so far are kept, but this run cannot be continued. Daily runs still start on time.", "Stop", true, this::stopAndOpen);
+            else if (modeIdx == 1) toggleDaily();
+            else start(endAtMs(), intervalSec(endAtMs() - System.currentTimeMillis()));
         });
-        Ui.press(dailyBtn).setOnClickListener(v -> toggleDaily());
         setContentView(sv);
         requestPermissions(new String[]{Manifest.permission.CAMERA, Manifest.permission.POST_NOTIFICATIONS}, 1);
         handle(getIntent());
@@ -292,16 +290,24 @@ public class RecordActivity extends Activity {
         wasRunning = running;
         boolean rec = running && st.equals("RECORDING"), daily = Daily.on(this), dmode = modeIdx == 1;
         stateLabel.setText(rec ? "●  RECORDING" : running ? "WAITING FOR LIGHT"
-                : daily ? "DAILY ON  ·  NEXT " + clock(Daily.nextStart(this)) : "READY");
-        stateLabel.setTextColor(rec ? Ui.RED : running || daily ? Ui.AMBER : Ui.DIM);
-        luxNum.setText(l < 0 ? "–" : String.valueOf(Math.round(l)));
+                : daily ? "DAILY ON  ·  NEXT " + clock(Daily.nextStart(this)) : "");
+        stateLabel.setVisibility(stateLabel.length() == 0 ? View.GONE : View.VISIBLE);
+        stateLabel.setTextColor(rec ? Ui.RED : Ui.AMBER);
+        title.setText(running ? "Filming" : "New timelapse");
+        boolean dark = auto && l >= 0 && l < Plan.AUTO_LUX;
+        luxNum.setText(l < 0 ? "Measuring the light…" : dark
+                ? "Too dark to film right now. It waits for light."
+                : "Enough light to film (" + Math.round(l) + " lux)");
+        luxNum.setTextColor(dark ? Ui.AMBER : Ui.DIM);
         bar.lux = Math.max(0, l); bar.thr = auto ? Plan.AUTO_LUX : 0; bar.invalidate();
         options.setVisibility(running ? View.GONE : View.VISIBLE);
         onceBox.setVisibility(dmode ? View.GONE : View.VISIBLE);
         dailyBox.setVisibility(dmode ? View.VISIBLE : View.GONE);
         keepBox.setVisibility(dmode ? View.VISIBLE : View.GONE);
-        autoHint.setText(auto ? "Takes a photo only when there is enough light to see something. A dim room lit by a screen counts."
-                : "Takes a photo every time, even when it is dark.");
+        moreBtn.setText(moreOpen ? "FEWER OPTIONS  ˄" : "MORE OPTIONS  ˅");
+        moreBox.setVisibility(moreOpen ? View.VISIBLE : View.GONE);
+        autoHint.setText(auto ? "Skips photos when it is too dark to see anything. A dim room lit by a screen counts as bright enough."
+                : "Takes a photo every time, even in the dark.");
         fromBtn.setText("From " + hm(sh, sm)); toBtn.setText("To " + hm(eh, em));
         fromBtn.setEnabled(!daily); toBtn.setEnabled(!daily);
 
@@ -314,36 +320,24 @@ public class RecordActivity extends Activity {
             long dur = ((eh * 60 + em) - (sh * 60 + sm) + 1440) % 1440 * 60000L;
             if (dur == 0) dur = 86400000L;
             int iv = intervalSec(dur);
-            summary.setText("A photo every " + iv + " s");
-            summary2.setText("Every day " + hm(sh, sm) + " → " + hm(eh, em) + " · about " + (dur / 1000 / iv) + " photos · "
-                    + VIDEO[videoIdx] + " s video · keeps " + KEEP[keepIdx] + " days");
-            shots.setText(daily ? "The video is built after each run. Nothing to do." : "Turn on once. It runs by itself every day.");
+            summary.setText("Films " + hm(sh, sm) + " to " + hm(eh, em) + ", then makes a " + VIDEO[videoIdx] + " s video.");
+            summary2.setText("Runs by itself every day. A photo every " + iv + " s, about " + (dur / 1000 / iv) + " photos.");
+            shots.setText(daily ? "Nothing to do. Videos appear in your list." : "");
         } else {
             long end = endAtMs(), dur = end - System.currentTimeMillis();
             int iv = intervalSec(dur);
             long photos = dur / 1000 / iv;
-            summary.setText("A photo every " + iv + " s");
-            summary2.setText("About " + photos + " photos · " + Math.max(1, photos / Plan.FPS) + " s video · stops at " + clock(end));
-            shots.setText("Press to start");
+            summary.setText("Films until " + clock(end) + ", then makes a " + Math.max(1, photos / Plan.FPS) + " s video.");
+            summary2.setText("A photo every " + iv + " s, about " + photos + " photos.");
+            shots.setText("");
         }
         untilChip.setText(HOURS[hoursIdx] == 0 ? hm(untilH, untilM) : "Until");
 
-        boolean showShutter = running || !dmode;
-        shutter.setVisibility(showShutter ? View.VISIBLE : View.GONE);
-        main.setVisibility(showShutter ? View.VISIBLE : View.GONE);
-        dailyBtn.setVisibility(showShutter ? View.GONE : View.VISIBLE);
-        dailyBtn.setText(daily ? "Turn off daily" : "Turn on daily");
-        dailyBtn.setTextColor(daily ? Ui.TXT : Ui.BG);
-        dailyBtn.setBackground(daily ? Ui.pill(this, Ui.LINE, 30) : Ui.pill(this, Ui.AMBER, 30));
-
-        GradientDrawable g = Ui.pill(this, running ? Ui.RED : Ui.AMBER, running ? 10 : 36);
-        int inset = Ui.dp(this, running ? 26 : 12);
-        GradientDrawable ring = new GradientDrawable();
-        ring.setShape(GradientDrawable.OVAL); ring.setColor(0); ring.setStroke(Ui.dp(this, 3), Ui.TXT);
-        LayerDrawable ld = new LayerDrawable(new Drawable[]{ring, g});
-        ld.setLayerInset(1, inset, inset, inset, inset);
-        shutter.setBackground(ld);
-        main.setContentDescription(running ? "Stop" : "Start");
+        main.setText(running ? "Stop" : dmode ? (daily ? "Turn off daily" : "Turn on daily") : "Start filming");
+        boolean quiet = !running && dmode && daily;
+        main.setTextColor(running ? Ui.TXT : quiet ? Ui.TXT : Ui.BG);
+        main.setBackground(Ui.pill(this, running ? Ui.RED : quiet ? Ui.LINE : Ui.AMBER, 30));
+        shots.setVisibility(shots.length() == 0 ? View.GONE : View.VISIBLE);
     }
 
     @Override protected void onResume() {
