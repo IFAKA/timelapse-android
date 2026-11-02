@@ -315,7 +315,8 @@ public class WebService extends Service {
             }
             case "/api/start": {
                 if (!post) break;
-                int videoSec = Integer.parseInt(q.getOrDefault("video", "30"));
+                int videoSec = Math.max(5, Math.min(3600, Integer.parseInt(q.getOrDefault("video", "60"))));
+                Daily.setVideo(this, videoSec);
                 float hours = Float.parseFloat(q.getOrDefault("hours", "4"));
                 long end = hours > 0 ? System.currentTimeMillis() + (long) (hours * 3600000L)
                         : Plan.nextClock(Integer.parseInt(q.getOrDefault("h", "18")), Integer.parseInt(q.getOrDefault("m", "0")));
@@ -331,7 +332,7 @@ public class WebService extends Service {
                 if (!post) break;
                 int sh = Integer.parseInt(q.getOrDefault("sh", "7")), sm = Integer.parseInt(q.getOrDefault("sm", "0"));
                 int eh = Integer.parseInt(q.getOrDefault("eh", "19")), em = Integer.parseInt(q.getOrDefault("em", "0"));
-                Daily.save(this, sh, sm, eh, em, Integer.parseInt(q.getOrDefault("video", "30")),
+                Daily.save(this, sh, sm, eh, em, Math.max(5, Math.min(3600, Integer.parseInt(q.getOrDefault("video", "60")))),
                         q.getOrDefault("bright", "1").equals("1"), Integer.parseInt(q.getOrDefault("keep", "14")));
                 if (q.getOrDefault("on", "0").equals("1")) Daily.enable(this); else Daily.disable(this);
                 json(out, new JSONObject().put("ok", true));

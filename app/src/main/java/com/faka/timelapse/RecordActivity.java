@@ -20,7 +20,6 @@ import java.util.function.IntConsumer;
 /** Live screen: choose how long (once, or every day), press the shutter. The photo interval is worked out from that. */
 public class RecordActivity extends Activity {
     static final int[] HOURS = {1, 2, 4, 8, 12, 0};      // 0 = until a clock time
-    static final int[] VIDEO = {15, 30, 60};            // seconds of finished video
     static final int[] KEEP = {7, 14, 30};              // days to keep daily timelapses
 
     SharedPreferences sp;
@@ -29,9 +28,11 @@ public class RecordActivity extends Activity {
     Button main;
     LinearLayout options, onceBox, dailyBox, keepBox, moreBox;
     boolean moreOpen;
-    Chips lenChips, vidChips, whenChips, modeChips, keepChips;
+    Chips lenChips, whenChips, modeChips, keepChips;
     TextView untilChip;
-    int modeIdx, hoursIdx, videoIdx, keepIdx, untilH, untilM, sh, sm, eh, em;
+    EditText vidEdit;
+    int videoSec = 60;   // seconds of finished video; any length, the last one used is kept
+    int modeIdx, hoursIdx, keepIdx, untilH, untilM, sh, sm, eh, em;
     boolean auto, running, wasRunning;
     final Handler ui = new Handler(Looper.getMainLooper());
     final Runnable tick = new Runnable() { @Override public void run() { refresh(); ui.postDelayed(this, 1000); } };
@@ -92,7 +93,7 @@ public class RecordActivity extends Activity {
         hoursIdx = sp.getInt("hoursIdx", 2);
         untilH = sp.getInt("untilH", 18); untilM = sp.getInt("untilM", 0);
         sh = Daily.sh(this); sm = Daily.sm(this); eh = Daily.eh(this); em = Daily.em(this);
-        videoIdx = Math.max(0, Arrays.binarySearch(VIDEO, Daily.video(this)));
+        videoSec = Daily.video(this);
         keepIdx = Math.max(0, Arrays.binarySearch(KEEP, Daily.keep(this)));
         auto = Daily.auto(this);
 
@@ -144,8 +145,28 @@ public class RecordActivity extends Activity {
         dailyBox.addView(group("FILM EVERY DAY", tr));
         options.addView(dailyBox);
 
-        vidChips = new Chips(new String[]{"15 s", "30 s", "1 min"}, videoIdx, i -> { videoIdx = i; save(); refresh(); });
-        options.addView(group("MAKE A VIDEO OF", vidChips.row));
+        vidEdit = new EditText(this);
+        vidEdit.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        vidEdit.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
+        vidEdit.setSingleLine(true); vidEdit.setText(String.valueOf(videoSec));
+        vidEdit.setTextSize(18); vidEdit.setTextColor(Ui.AMBER); vidEdit.setGravity(Gravity.CENTER);
+        vidEdit.setBackground(Ui.pill(this, Ui.LINE, 10));
+        vidEdit.addTextChangedListener(new android.text.TextWatcher() {
+            public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
+            public void onTextChanged(CharSequence s, int a, int b, int c) {}
+            public void afterTextChanged(android.text.Editable s) {
+                try { videoSec = Math.max(5, Math.min(3600, Integer.parseInt(s.toString()))); } catch (NumberFormatException e) { return; }
+                save(); refresh();
+            }
+        });
+        TextView unit = Ui.text(this, "seconds", 15, Ui.DIM);
+        unit.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout vrow = new LinearLayout(this);
+        vrow.addView(vidEdit, new LinearLayout.LayoutParams(Ui.dp(this, 110), Ui.dp(this, 48)));
+        LinearLayout.LayoutParams ul = new LinearLayout.LayoutParams(-2, Ui.dp(this, 48));
+        ul.setMarginStart(Ui.dp(this, 12));
+        vrow.addView(unit, ul);
+        options.addView(group("MAKE A VIDEO OF", vrow));
         modeChips = new Chips(new String[]{"Just once", "Every day"}, modeIdx, i -> { modeIdx = i; save(); refresh(); });
         options.addView(group("REPEAT", modeChips.row));
 
@@ -215,7 +236,7 @@ public class RecordActivity extends Activity {
 
     void save() {
         sp.edit().putInt("modeIdx", modeIdx).putInt("hoursIdx", hoursIdx).putInt("untilH", untilH).putInt("untilM", untilM).apply();
-        Daily.save(this, sh, sm, eh, em, VIDEO[videoIdx], auto, KEEP[keepIdx]);
+        Daily.save(this, sh, sm, eh, em, videoSec, auto, KEEP[keepIdx]);
     }
 
     interface TimeSet { void set(int h, int m); }
@@ -229,7 +250,7 @@ public class RecordActivity extends Activity {
         return Plan.nextClock(untilH, untilM);
     }
 
-    int intervalSec(long durMs) { return Plan.intervalSec(durMs, VIDEO[videoIdx]); }
+    int intervalSec(long durMs) { return Plan.intervalSec(durMs, videoSec); }
 
     void start(long endAt, int interval) {
         save();
@@ -320,14 +341,14 @@ public class RecordActivity extends Activity {
             long dur = ((eh * 60 + em) - (sh * 60 + sm) + 1440) % 1440 * 60000L;
             if (dur == 0) dur = 86400000L;
             int iv = intervalSec(dur);
-            summary.setText("Films " + hm(sh, sm) + " to " + hm(eh, em) + ", then makes a " + VIDEO[videoIdx] + " s video.");
+            summary.setText("Films " + hm(sh, sm) + " to " + hm(eh, em) + ", then makes a " + videoSec + " s video.");
             summary2.setText("Runs by itself every day. A photo every " + iv + " s, about " + (dur / 1000 / iv) + " photos.");
             shots.setText(daily ? "Nothing to do. Videos appear in your list." : "");
         } else {
             long end = endAtMs(), dur = end - System.currentTimeMillis();
             int iv = intervalSec(dur);
             long photos = dur / 1000 / iv;
-            summary.setText("Films until " + clock(end) + ", then makes a " + Math.max(1, photos / Plan.FPS) + " s video.");
+            summary.setText("Films until " + clock(end) + ", then makes a " + (iv > 3 && iv < 300 ? videoSec : Math.max(1, photos / Plan.FPS)) + " s video.");
             summary2.setText("A photo every " + iv + " s, about " + photos + " photos.");
             shots.setText("");
         }

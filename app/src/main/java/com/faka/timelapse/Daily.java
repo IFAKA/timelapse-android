@@ -14,7 +14,9 @@ final class Daily {
     static int sm(Context c) { return sp(c).getInt("sm", 0); }
     static int eh(Context c) { return sp(c).getInt("eh", 19); }
     static int em(Context c) { return sp(c).getInt("em", 0); }
-    static int video(Context c) { return sp(c).getInt("video", 30); }
+    static int video(Context c) { return sp(c).getInt("video", 60); }
+    /** The last video length the user chose; it becomes the next default. */
+    static void setVideo(Context c, int sec) { sp(c).edit().putInt("video", Math.max(5, Math.min(3600, sec))).apply(); }
     static boolean auto(Context c) { return sp(c).getBoolean("auto", true); }
     static int keep(Context c) { return sp(c).getInt("keep", 14); }
 

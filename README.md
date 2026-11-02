@@ -8,7 +8,7 @@ No account, no cloud, no ads. Everything stays on the phone. You can also contro
 
 ## What it does
 
-- **Two questions only.** Film for 1 to 12 hours (or until a clock time). Make a video of 15 s, 30 s or 1 min. The time between photos is calculated for you.
+- **Two questions only.** Film for 1 to 12 hours (or until a clock time). Make a video of any length in seconds (1 minute at first, then the last length you used). The time between photos is calculated for you.
 - **Works with the screen locked.** Runs start from an alarm, so the phone can sleep until it is time.
 - **Light-aware.** In "Only when bright" mode it skips photos that are too dark to see anything. A dim room lit by a laptop still counts as bright enough.
 - **Every day, by itself.** Set a start time, an end time and a video length. The phone films and builds the video each day, and deletes old ones after 7, 14 or 30 days.
