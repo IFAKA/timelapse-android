@@ -19,7 +19,6 @@ import java.util.function.IntConsumer;
 
 /** Live screen: choose how long (once, or every day), press the shutter. The photo interval is worked out from that. */
 public class RecordActivity extends Activity {
-    static final int[] HOURS = {1, 2, 4, 8, 12, 0};      // 0 = until a clock time
     static final int[] KEEP = {7, 14, 30};              // days to keep daily timelapses
 
     SharedPreferences sp;
@@ -30,9 +29,12 @@ public class RecordActivity extends Activity {
     boolean moreOpen;
     Chips lenChips, whenChips, modeChips, keepChips;
     TextView untilChip;
-    EditText vidEdit;
+    EditText vidEdit, hoursEdit;
+    LinearLayout hoursRow;
+    float hoursVal = 4;      // hours to film, any value; the last one used is kept
+    boolean useUntil;        // film until a clock time instead of for some hours
     int videoSec = 60;   // seconds of finished video; any length, the last one used is kept
-    int modeIdx, hoursIdx, keepIdx, untilH, untilM, sh, sm, eh, em;
+    int modeIdx, keepIdx, untilH, untilM, sh, sm, eh, em;
     boolean auto, running, wasRunning;
     final Handler ui = new Handler(Looper.getMainLooper());
     final Runnable tick = new Runnable() { @Override public void run() { refresh(); ui.postDelayed(this, 1000); } };
@@ -67,6 +69,19 @@ public class RecordActivity extends Activity {
         }
     }
 
+    /** A pill-shaped number field. decimal = allow a fraction (hours). */
+    EditText numberBox(boolean decimal) {
+        EditText e = new EditText(this);
+        e.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | (decimal ? android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL : 0));
+        e.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
+        e.setSingleLine(true);
+        e.setTextSize(18); e.setTextColor(Ui.AMBER); e.setGravity(Gravity.CENTER);
+        e.setBackground(Ui.pill(this, Ui.LINE, 10));
+        return e;
+    }
+
+    static String fmtHours(float h) { return h == Math.round(h) ? String.valueOf(Math.round(h)) : String.valueOf(h); }
+
     LinearLayout group(String title, View content) {
         LinearLayout g = new LinearLayout(this);
         g.setOrientation(LinearLayout.VERTICAL);
@@ -90,7 +105,7 @@ public class RecordActivity extends Activity {
         Ui.window(this);
         sp = getSharedPreferences("tl", MODE_PRIVATE);
         modeIdx = Daily.on(this) ? 1 : sp.getInt("modeIdx", 0);
-        hoursIdx = sp.getInt("hoursIdx", 2);
+        hoursVal = sp.getFloat("hoursVal", 4); useUntil = sp.getBoolean("useUntil", false);
         untilH = sp.getInt("untilH", 18); untilM = sp.getInt("untilM", 0);
         sh = Daily.sh(this); sm = Daily.sm(this); eh = Daily.eh(this); em = Daily.em(this);
         videoSec = Daily.video(this);
@@ -123,15 +138,45 @@ public class RecordActivity extends Activity {
         options.setOrientation(LinearLayout.VERTICAL);
         options.setPadding(pad, 0, pad, 0);
 
-        lenChips = new Chips(new String[]{"1 h", "2 h", "4 h", "8 h", "12 h", "Until"}, hoursIdx, i -> {
-            hoursIdx = i;
-            if (HOURS[i] == 0) pickTime(untilH, untilM, (h, m) -> { untilH = h; untilM = m; });
-            save(); refresh();
+        // Repeat tabs sit on top, right under the light line
+        modeChips = new Chips(new String[]{"Just once", "Every day"}, modeIdx, i -> { modeIdx = i; save(); refresh(); });
+        LinearLayout tabs = new LinearLayout(this);
+        tabs.setOrientation(LinearLayout.VERTICAL);
+        tabs.setPadding(0, Ui.dp(this, 22), 0, 0);
+        tabs.addView(modeChips.row);
+        options.addView(tabs);
+
+        // Film for: a number of hours OR until a clock time
+        lenChips = new Chips(new String[]{"For hours", "Until a time"}, useUntil ? 1 : 0, i -> { useUntil = i == 1; save(); refresh(); });
+        hoursEdit = numberBox(true);
+        hoursEdit.setText(fmtHours(hoursVal));
+        hoursEdit.addTextChangedListener(new android.text.TextWatcher() {
+            public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
+            public void onTextChanged(CharSequence s, int a, int b, int c) {}
+            public void afterTextChanged(android.text.Editable s) {
+                try { hoursVal = Math.max(0.1f, Math.min(72f, Float.parseFloat(s.toString().replace(',', '.')))); } catch (NumberFormatException e) { return; }
+                save(); refresh();
+            }
         });
-        untilChip = lenChips.v[5];
+        hoursRow = new LinearLayout(this);
+        hoursRow.addView(hoursEdit, new LinearLayout.LayoutParams(Ui.dp(this, 110), Ui.dp(this, 48)));
+        TextView hu = Ui.text(this, "hours", 15, Ui.DIM);
+        hu.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams hl = new LinearLayout.LayoutParams(-2, Ui.dp(this, 48));
+        hl.setMarginStart(Ui.dp(this, 12));
+        hoursRow.addView(hu, hl);
+        untilChip = timeBtn(() -> pickTime(untilH, untilM, (h, m) -> { untilH = h; untilM = m; }));
         onceBox = new LinearLayout(this);
         ((LinearLayout) onceBox).setOrientation(LinearLayout.VERTICAL);
-        onceBox.addView(group("FILM FOR", lenChips.row));
+        LinearLayout lenBox = new LinearLayout(this);
+        lenBox.setOrientation(LinearLayout.VERTICAL);
+        lenBox.addView(lenChips.row);
+        LinearLayout.LayoutParams sp1 = new LinearLayout.LayoutParams(-1, -2);
+        sp1.topMargin = Ui.dp(this, 10);
+        lenBox.addView(hoursRow, sp1);
+        lenBox.addView(untilChip, new LinearLayout.LayoutParams(-1, Ui.dp(this, 48)));
+        ((LinearLayout.LayoutParams) untilChip.getLayoutParams()).topMargin = Ui.dp(this, 10);
+        onceBox.addView(group("FILM FOR", lenBox));
         options.addView(onceBox);
 
         LinearLayout tr = new LinearLayout(this);
@@ -145,12 +190,8 @@ public class RecordActivity extends Activity {
         dailyBox.addView(group("FILM EVERY DAY", tr));
         options.addView(dailyBox);
 
-        vidEdit = new EditText(this);
-        vidEdit.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-        vidEdit.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
-        vidEdit.setSingleLine(true); vidEdit.setText(String.valueOf(videoSec));
-        vidEdit.setTextSize(18); vidEdit.setTextColor(Ui.AMBER); vidEdit.setGravity(Gravity.CENTER);
-        vidEdit.setBackground(Ui.pill(this, Ui.LINE, 10));
+        vidEdit = numberBox(false);
+        vidEdit.setText(String.valueOf(videoSec));
         vidEdit.addTextChangedListener(new android.text.TextWatcher() {
             public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
             public void onTextChanged(CharSequence s, int a, int b, int c) {}
@@ -167,8 +208,6 @@ public class RecordActivity extends Activity {
         ul.setMarginStart(Ui.dp(this, 12));
         vrow.addView(unit, ul);
         options.addView(group("MAKE A VIDEO OF", vrow));
-        modeChips = new Chips(new String[]{"Just once", "Every day"}, modeIdx, i -> { modeIdx = i; save(); refresh(); });
-        options.addView(group("REPEAT", modeChips.row));
 
         // Rarely needed settings stay folded away
         moreBtn = Ui.caps(this, "", Ui.DIM);
@@ -235,7 +274,7 @@ public class RecordActivity extends Activity {
     }
 
     void save() {
-        sp.edit().putInt("modeIdx", modeIdx).putInt("hoursIdx", hoursIdx).putInt("untilH", untilH).putInt("untilM", untilM).apply();
+        sp.edit().putInt("modeIdx", modeIdx).putFloat("hoursVal", hoursVal).putBoolean("useUntil", useUntil).putInt("untilH", untilH).putInt("untilM", untilM).apply();
         Daily.save(this, sh, sm, eh, em, videoSec, auto, KEEP[keepIdx]);
     }
 
@@ -246,7 +285,7 @@ public class RecordActivity extends Activity {
     }
 
     long endAtMs() {
-        if (HOURS[hoursIdx] > 0) return System.currentTimeMillis() + HOURS[hoursIdx] * 3600000L;
+        if (!useUntil) return System.currentTimeMillis() + (long) (hoursVal * 3600000L);
         return Plan.nextClock(untilH, untilM);
     }
 
@@ -352,7 +391,9 @@ public class RecordActivity extends Activity {
             summary2.setText("A photo every " + iv + " s, about " + photos + " photos.");
             shots.setText("");
         }
-        untilChip.setText(HOURS[hoursIdx] == 0 ? hm(untilH, untilM) : "Until");
+        untilChip.setText("Until " + hm(untilH, untilM));
+        hoursRow.setVisibility(useUntil ? View.GONE : View.VISIBLE);
+        untilChip.setVisibility(useUntil ? View.VISIBLE : View.GONE);
 
         main.setText(running ? "Stop" : dmode ? (daily ? "Turn off daily" : "Turn on daily") : "Start filming");
         boolean quiet = !running && dmode && daily;

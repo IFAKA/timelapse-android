@@ -25,6 +25,7 @@ h2{font-weight:300;font-size:30px;margin:0}
 .chip:active{transform:scale(.97)}
 input[type=time]{background:var(--line);color:var(--amber);border:0;border-radius:10px;padding:11px 12px;font:inherit;width:100%}
 .vid{display:flex;align-items:center;gap:12px;margin-top:10px}
+.vid input.tm{width:100%}
 .vid input{width:110px;background:var(--line);color:var(--amber);border:0;border-radius:10px;padding:11px 12px;font:inherit;font-size:18px;text-align:center;-moz-appearance:textfield}
 .two{display:flex;gap:6px}.two>*{flex:1}
 .more{margin-top:22px}.more summary{cursor:pointer;list-style:none;display:inline-block;padding:4px 0}.more summary::after{content:' \02C5';font-size:13px}.more[open] summary::after{content:' \02C4'}.more summary:active{opacity:.6}.more summary::-webkit-details-marker{display:none}
@@ -87,16 +88,19 @@ input[type=range]{width:100%;accent-color:var(--amber);margin:14px 0 4px}
 <script>
 const $=s=>document.querySelector(s);
 let S=null,view='home',cur=null,tab='',frames=0,frameIdx=-1,more=false,sel=new Set(),
-    opt={mode:0,hours:4,video:60,bright:1,until:'18:00',from:'07:00',to:'19:00',keep:14,init:0};
-const H=[1,2,4,8,12,0],p2=n=>String(n).padStart(2,'0');
+    opt={mode:0,hours:4,useUntil:0,video:60,bright:1,until:'18:00',from:'07:00',to:'19:00',keep:14,init:0};
+try{Object.assign(opt,JSON.parse(localStorage.tlFilm||'{}'))}catch(e){}
+const p2=n=>String(n).padStart(2,'0');
 async function api(p,m){const r=await fetch(p,{method:m||'GET'});return r.json()}
 const dur=ms=>{const m=Math.floor(ms/60000);return m<1?'under 1 min':m<60?m+' min':Math.floor(m/60)+' h '+m%60+' min'};
 const clock=ms=>new Date(ms).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
 const esc=t=>t.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-function endAt(){if(opt.hours>0)return Date.now()+opt.hours*3600000;const[a,b]=opt.until.split(':').map(Number);const d=new Date();d.setHours(a,b,0,0);if(d-Date.now()<60000)d.setDate(d.getDate()+1);return d.getTime()}
+function endAt(){if(!opt.useUntil)return Date.now()+opt.hours*3600000;const[a,b]=opt.until.split(':').map(Number);const d=new Date();d.setHours(a,b,0,0);if(d-Date.now()<60000)d.setDate(d.getDate()+1);return d.getTime()}
 const ivFor=sec=>Math.max(3,Math.min(300,Math.round(sec/(opt.video*24))));
 function chips(key,vals,labels){return '<div class="chips">'+vals.map((v,i)=>`<span class="chip ${opt[key]===v?'on':''}" onclick="setOpt('${key}',${v})">${labels[i]}</span>`).join('')+'</div>'}
-function setOpt(k,v){opt[k]=v;drawSide(1)}
+function save_(){try{localStorage.tlFilm=JSON.stringify({hours:opt.hours,useUntil:opt.useUntil,until:opt.until})}catch(e){}}
+function setOpt(k,v){opt[k]=v;save_();drawSide(1)}
+function setHrs(v){const n=parseFloat(v);if(!(n>0))return;opt.hours=Math.min(72,n);save_();drawSide(1)}
 function setVid(v){const n=parseInt(v);if(!(n>=5))return;opt.video=Math.min(3600,n);drawSide(1)}
 
 /* ---------- left: new timelapse ---------- */
@@ -112,15 +116,14 @@ function side(){
     h+=`<button class="go stop" onclick="ask('Stop this run?','The photos so far are kept, but this run cannot be continued. Daily runs still start on time.','Stop',stopRec)">Stop</button>`;
     return h;
   }
+  h+='<div class="grp">'+chips('mode',[0,1],['Just once','Every day'])+'</div>';
   if(!dm){
-    h+='<div class="grp"><div class="caps">Film for</div>'+chips('hours',H,['1 h','2 h','4 h','8 h','12 h','Until'])+'</div>';
-    if(opt.hours===0)h+=`<div class="grp"><input type="time" value="${opt.until}" onchange="opt.until=this.value;drawSide(1)"></div>`;
+    h+='<div class="grp"><div class="caps">Film for</div>'+chips('useUntil',[0,1],['For hours','Until a time'])+'<div class="vid">'+(opt.useUntil?`<input type="time" class="tm" value="${opt.until}" onchange="opt.until=this.value;save_();drawSide(1)">`:`<input id="hrs" type="number" min="0.1" max="72" step="any" value="${opt.hours}" oninput="setHrs(this.value)"><span class="dim">hours</span>`)+'</div></div>';
   }else{
     const d=daily?'disabled':'';
     h+=`<div class="grp"><div class="caps">Film every day</div><div class="chips two"><input type="time" value="${opt.from}" ${d} onchange="opt.from=this.value;drawSide(1)"><input type="time" value="${opt.to}" ${d} onchange="opt.to=this.value;drawSide(1)"></div></div>`;
   }
   h+=`<div class="grp"><div class="caps">Make a video of</div><div class="vid"><input id="vid" type="number" min="5" max="3600" value="${opt.video}" oninput="setVid(this.value)"><span class="dim">seconds</span></div></div>`;
-  h+='<div class="grp"><div class="caps">Repeat</div>'+chips('mode',[0,1],['Just once','Every day'])+'</div>';
   h+=`<details class="more" ${more?'open':''} ontoggle="more=this.open"><summary class="caps">More options</summary>`;
   h+='<div class="grp"><div class="caps">Take photos</div>'+chips('bright',[1,0],['Only when bright','Always'])+`<p class="hint">${opt.bright?'Skips photos when it is too dark to see anything. A dim room lit by a screen counts as bright enough.':'Takes a photo every time, even in the dark.'}</p></div>`;
   if(dm)h+='<div class="grp"><div class="caps">Delete daily timelapses after</div>'+chips('keep',[7,14,30],['7 days','14 days','30 days'])+'</div>';
@@ -183,7 +186,7 @@ function delSel(){
 }
 
 /* ---------- actions ---------- */
-async function startRec(){await api(`/api/start?hours=${opt.hours}&video=${opt.video}&bright=${opt.bright}&h=${opt.until.split(':')[0]}&m=${opt.until.split(':')[1]}`,'POST');goHome();setTimeout(poll,1500)}
+async function startRec(){await api(`/api/start?hours=${opt.useUntil?0:opt.hours}&video=${opt.video}&bright=${opt.bright}&h=${opt.until.split(':')[0]}&m=${opt.until.split(':')[1]}`,'POST');goHome();setTimeout(poll,1500)}
 async function setDaily(on){const f=opt.from.split(':'),t=opt.to.split(':');await api(`/api/daily?on=${on}&sh=${+f[0]}&sm=${+f[1]}&eh=${+t[0]}&em=${+t[1]}&video=${opt.video}&bright=${opt.bright}&keep=${opt.keep}`,'POST');setTimeout(poll,1500)}
 async function stopRec(){await api('/api/stop','POST');poll()}
 async function makeV(id){await api('/api/makevideo?s='+id,'POST');setTimeout(poll,800)}
@@ -202,9 +205,9 @@ let lastSide='',lastMain='';
 function drawSide(force){
   if(!S)return;
   const a=document.activeElement;if(a&&a.tagName==='INPUT'&&!force&&$('#side').contains(a))return;
-  const typing=a&&a.id==='vid';
+  const typing=a&&(a.id==='vid'||a.id==='hrs')?a.id:'';
   const html=side();if(html===lastSide&&!force)return;lastSide=html;$('#side').innerHTML=html;
-  if(typing){const v=$('#vid');v.focus();v.setSelectionRange(v.value.length,v.value.length)}
+  if(typing){const v=$('#'+typing);if(!v)return;v.focus();v.setSelectionRange(v.value.length,v.value.length)}
 }
 function drawMain(force){
   if(!S)return;
