@@ -93,6 +93,7 @@ public class WebService extends Service {
         wifi = getSystemService(WifiManager.class).createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, "timelapse:web");
         wifi.acquire();
         new Thread(this::serve, "tl-web").start();
+        new Thread(this::keepAwake, "tl-wifi").start();
         return START_STICKY;
     }
 
@@ -101,7 +102,13 @@ public class WebService extends Service {
         char[] pw = "tl".toCharArray();
         File f = new File(c.getFilesDir(), "web.p12");
         java.security.KeyStore ks = java.security.KeyStore.getInstance("PKCS12");
-        if (f.exists()) {
+        File ipf = new File(c.getFilesDir(), "web.ip");
+        String ip = String.valueOf(ip());
+        boolean same = false;
+        try (BufferedReader br = new BufferedReader(new FileReader(ipf))) { same = ip.equals(br.readLine()); } catch (IOException e) {}
+        // A new certificate is made when the phone's address changed or the old one is nearly a year old,
+        // because browsers check that the address is named in it and refuse long-lived ones.
+        if (f.exists() && same && System.currentTimeMillis() - f.lastModified() < 300L * 86400000L) {
             try (InputStream in = new FileInputStream(f)) { ks.load(in, pw); }
         } else {
             java.security.KeyPairGenerator g = java.security.KeyPairGenerator.getInstance("RSA");
@@ -113,9 +120,9 @@ public class WebService extends Service {
             df.setTimeZone(TimeZone.getTimeZone("UTC"));
             long now = System.currentTimeMillis();
             byte[] valid = der(0x30, der(0x17, df.format(new Date(now - 86400000L)).getBytes("US-ASCII")),
-                    der(0x17, df.format(new Date(now + 3650L * 86400000L)).getBytes("US-ASCII")));
+                    der(0x17, df.format(new Date(now + 365L * 86400000L)).getBytes("US-ASCII")));
             byte[] tbs = der(0x30, der(0xA0, der(0x02, new byte[]{2})), der(0x02, new byte[]{1, (byte) (now & 0x7F)}),
-                    alg, name, valid, name, kp.getPublic().getEncoded());
+                    alg, name, valid, name, kp.getPublic().getEncoded(), der(0xA3, der(0x30, san(ip), eku())));
             java.security.Signature sg = java.security.Signature.getInstance("SHA256withRSA");
             sg.initSign(kp.getPrivate());
             sg.update(tbs);
@@ -128,12 +135,31 @@ public class WebService extends Service {
             ks.load(null, null);
             ks.setKeyEntry("tl", kp.getPrivate(), pw, new java.security.cert.Certificate[]{cc});
             try (OutputStream out = new FileOutputStream(f)) { ks.store(out, pw); }
+            try (FileWriter w = new FileWriter(ipf)) { w.write(ip); }
         }
         javax.net.ssl.KeyManagerFactory kmf = javax.net.ssl.KeyManagerFactory.getInstance(javax.net.ssl.KeyManagerFactory.getDefaultAlgorithm());
         kmf.init(ks, pw);
         javax.net.ssl.SSLContext ctx = javax.net.ssl.SSLContext.getInstance("TLS");
         ctx.init(kmf.getKeyManagers(), null, null);
         return ctx.getServerSocketFactory();
+    }
+
+    // Extension "subject alt name": this phone's address and localhost. Browsers need the address named.
+    static byte[] san(String ip) {
+        ByteArrayOutputStream names = new ByteArrayOutputStream();
+        byte[] dns = der(0x82, "localhost".getBytes());
+        names.write(dns, 0, dns.length);
+        try {
+            byte[] a = InetAddress.getByName(ip).getAddress();
+            if (a.length == 4) { byte[] n = der(0x87, a); names.write(n, 0, n.length); }
+        } catch (Exception e) {}
+        return der(0x30, der(0x06, new byte[]{0x55, 0x1D, 0x11}), der(0x04, der(0x30, names.toByteArray())));
+    }
+
+    // Extension "extended key usage": this certificate is for a web server.
+    static byte[] eku() {
+        return der(0x30, der(0x06, new byte[]{0x55, 0x1D, 0x25}),
+                der(0x04, der(0x30, der(0x06, new byte[]{0x2B, 6, 1, 5, 5, 7, 3, 1}))));
     }
 
     // One DER element: tag, length, then the parts joined.
@@ -148,6 +174,24 @@ public class WebService extends Service {
         else { o.write(0x82); o.write(n >> 8); o.write(n & 255); }
         o.write(body.toByteArray(), 0, n);
         return o.toByteArray();
+    }
+
+    /**
+     * An idle phone Wi-Fi chip sleeps and stops answering the router's "who has this address?" question,
+     * so the computer sees "no route to host". Sending one tiny packet to the router every few seconds keeps it awake.
+     */
+    @SuppressWarnings("deprecation")
+    void keepAwake() {
+        try (DatagramSocket u = new DatagramSocket()) {
+            while (inst == this) {
+                int gw = getSystemService(WifiManager.class).getDhcpInfo().gateway;
+                if (gw != 0) {
+                    byte[] a = {(byte) gw, (byte) (gw >> 8), (byte) (gw >> 16), (byte) (gw >> 24)};
+                    u.send(new DatagramPacket(new byte[1], 1, InetAddress.getByAddress(a), 9));
+                }
+                Thread.sleep(5000);
+            }
+        } catch (Exception e) { Log.w(TAG, "keepAwake: " + e); }
     }
 
     void serve() {
