@@ -30,6 +30,9 @@ public class RecordActivity extends Activity {
     Chips lenChips, whenChips, modeChips, keepChips;
     TextView untilChip;
     EditText vidEdit, hoursEdit;
+    Chips dayChips;
+    LinearLayout dayTimes;
+    boolean allDay() { return sh == 0 && sm == 0 && eh == 0 && em == 0; }
     LinearLayout hoursRow;
     float hoursVal = 4;      // hours to film, any value; the last one used is kept
     boolean useUntil;        // film until a clock time instead of for some hours
@@ -187,7 +190,21 @@ public class RecordActivity extends Activity {
         tr.addView(fromBtn, l1); tr.addView(toBtn, new LinearLayout.LayoutParams(0, Ui.dp(this, 48), 1));
         dailyBox = new LinearLayout(this);
         ((LinearLayout) dailyBox).setOrientation(LinearLayout.VERTICAL);
-        dailyBox.addView(group("FILM EVERY DAY", tr));
+        // Start = end (00:00 to 00:00) means the whole day. That is the default; "Set hours" shows the two times.
+        dayChips = new Chips(new String[]{"All day", "Set hours"}, allDay() ? 0 : 1, i -> {
+            if (Daily.on(this)) { dayChips.select(allDay() ? 0 : 1); return; }
+            if (i == 0) { sh = sm = eh = em = 0; }
+            else if (allDay()) { sh = 8; sm = 0; eh = 20; em = 0; }
+            save(); refresh();
+        });
+        LinearLayout dbox = new LinearLayout(this);
+        dbox.setOrientation(LinearLayout.VERTICAL);
+        dbox.addView(dayChips.row);
+        dayTimes = tr;
+        LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(-1, -2);
+        dl.topMargin = Ui.dp(this, 10);
+        dbox.addView(tr, dl);
+        dailyBox.addView(group("FILM EVERY DAY", dbox));
         options.addView(dailyBox);
 
         vidEdit = numberBox(false);
@@ -369,6 +386,8 @@ public class RecordActivity extends Activity {
         autoHint.setText(auto ? "Skips photos when it is too dark to see anything. A dim room lit by a screen counts as bright enough."
                 : "Takes a photo every time, even in the dark.");
         fromBtn.setText("From " + hm(sh, sm)); toBtn.setText("To " + hm(eh, em));
+        dayChips.select(allDay() ? 0 : 1);
+        dayTimes.setVisibility(allDay() ? View.GONE : View.VISIBLE);
         fromBtn.setEnabled(!daily); toBtn.setEnabled(!daily);
 
         if (running) {
@@ -380,7 +399,7 @@ public class RecordActivity extends Activity {
             long dur = ((eh * 60 + em) - (sh * 60 + sm) + 1440) % 1440 * 60000L;
             if (dur == 0) dur = 86400000L;
             int iv = intervalSec(dur);
-            summary.setText("Films " + hm(sh, sm) + " to " + hm(eh, em) + ", then makes a " + videoSec + " s video.");
+            summary.setText((allDay() ? "Films all day" : "Films " + hm(sh, sm) + " to " + hm(eh, em)) + ", then makes a " + videoSec + " s video.");
             summary2.setText("Runs by itself every day. A photo every " + iv + " s, about " + (dur / 1000 / iv) + " photos.");
             shots.setText(daily ? "Nothing to do. Videos appear in your list." : "");
         } else {

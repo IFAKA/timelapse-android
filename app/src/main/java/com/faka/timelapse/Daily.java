@@ -10,9 +10,10 @@ final class Daily {
     static SharedPreferences sp(Context c) { return c.getSharedPreferences("tl_daily", Context.MODE_PRIVATE); }
 
     static boolean on(Context c) { return sp(c).getBoolean("on", false); }
-    static int sh(Context c) { return sp(c).getInt("sh", 7); }
+    // Default is the whole day: start = end = 00:00
+    static int sh(Context c) { return sp(c).getInt("sh", 0); }
     static int sm(Context c) { return sp(c).getInt("sm", 0); }
-    static int eh(Context c) { return sp(c).getInt("eh", 19); }
+    static int eh(Context c) { return sp(c).getInt("eh", 0); }
     static int em(Context c) { return sp(c).getInt("em", 0); }
     static int video(Context c) { return sp(c).getInt("video", 60); }
     /** The last video length the user chose; it becomes the next default. */
@@ -35,7 +36,7 @@ final class Daily {
     }
 
     /** Are we inside today's window right now? (The next end comes before the next start.) */
-    static boolean windowActive(Context c) { return Plan.nextClock(eh(c), em(c)) < nextStart(c); }
+    static boolean windowActive(Context c) { return windowMs(c) >= 1440 * 60000L || Plan.nextClock(eh(c), em(c)) < nextStart(c); }
 
     static void scheduleNext(Context c) {
         c.getSystemService(android.app.AlarmManager.class).cancel(Plan.pi(c, "START"));
