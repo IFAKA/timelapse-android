@@ -10,6 +10,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -76,6 +77,61 @@ final class Ui {
         b.setBackgroundColor(0); b.setPadding(0, 0, 0, 0); b.setStateListAnimator(null);
         b.setLayoutParams(new LinearLayout.LayoutParams(-1, dp(c, 54)));
         return b;
+    }
+
+    /**
+     * Bottom drawer that asks before something that can't be undone. The safe choice is first and
+     * nothing is pre-selected by the keyboard; the drawer slides up over a dimmed screen.
+     */
+    static void sheet(Activity a, String title, String body, String yes, boolean danger, Runnable onYes) {
+        android.app.Dialog d = new android.app.Dialog(a, android.R.style.Theme_Translucent_NoTitleBar);
+        LinearLayout col = new LinearLayout(a);
+        col.setOrientation(LinearLayout.VERTICAL);
+        int p = dp(a, 24);
+        col.setPadding(p, dp(a, 12), p, dp(a, 20));
+        float r = dp(a, 20);
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(0xFF161512);
+        bg.setCornerRadii(new float[]{r, r, r, r, 0, 0, 0, 0});
+        col.setBackground(bg);
+        View grip = new View(a);
+        grip.setBackground(pill(a, LINE, 2));
+        LinearLayout.LayoutParams gp = new LinearLayout.LayoutParams(dp(a, 36), dp(a, 4));
+        gp.gravity = Gravity.CENTER_HORIZONTAL; gp.bottomMargin = dp(a, 20);
+        col.addView(grip, gp);
+        col.addView(text(a, title, 22, TXT));
+        TextView b = text(a, body, 14, DIM);
+        b.setLineSpacing(0, 1.25f);
+        LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(-1, -2);
+        bp.topMargin = dp(a, 8); bp.bottomMargin = dp(a, 24);
+        col.addView(b, bp);
+        TextView keep = caps(a, danger ? "KEEP" : "NOT NOW", TXT), go = caps(a, yes.toUpperCase(), BG);
+        keep.setGravity(Gravity.CENTER); go.setGravity(Gravity.CENTER);
+        keep.setBackground(pill(a, LINE, 28)); go.setBackground(pill(a, danger ? RED : AMBER, 28));
+        LinearLayout row = new LinearLayout(a);
+        LinearLayout.LayoutParams k = new LinearLayout.LayoutParams(0, dp(a, 56), 1);
+        k.rightMargin = dp(a, 12);
+        row.addView(press(keep), k);
+        row.addView(press(go), new LinearLayout.LayoutParams(0, dp(a, 56), 1));
+        col.addView(row);
+        keep.setOnClickListener(v -> d.dismiss());
+        go.setOnClickListener(v -> { d.dismiss(); onYes.run(); });
+        FrameLayout root = new FrameLayout(a);
+        root.setBackgroundColor(0x99000000);
+        root.setOnClickListener(v -> d.dismiss());
+        root.addView(col, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
+        col.setClickable(true);
+        d.setContentView(root);
+        d.setCanceledOnTouchOutside(true);
+        android.view.Window w = d.getWindow();
+        w.setLayout(-1, -1);
+        w.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0));
+        w.setDimAmount(0);
+        d.show();
+        root.setAlpha(0);
+        root.animate().alpha(1).setDuration(180).start();
+        col.setTranslationY(dp(a, 280));
+        col.animate().translationY(0).setDuration(240).setInterpolator(new android.view.animation.DecelerateInterpolator(2.5f)).start();
     }
 
     static GradientDrawable pill(Context c, int color, int radiusDp) {

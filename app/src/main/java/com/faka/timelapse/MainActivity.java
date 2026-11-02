@@ -248,18 +248,16 @@ public class MainActivity extends Activity {
     void confirmDelete() {
         int n = sel.size();
         if (n == 0) return;
-        new android.app.AlertDialog.Builder(this).setTitle(n == 1 ? "Delete this timelapse?" : "Delete " + n + " timelapses?")
-                .setMessage("Their photos and videos are removed from the phone.")
-                .setNegativeButton("Keep", null)
-                .setPositiveButton("Delete", (d, w) -> {
-                    final java.util.List<String> ids = new java.util.ArrayList<>(sel);
-                    String busy = getSharedPreferences("tl_state", MODE_PRIVATE).getString("session", "");
-                    boolean rec = Ui.recordingAlive(this);
-                    Ui.IO.execute(() -> {
-                        for (String id : ids) if (!(rec && id.equals(busy))) Media.delete(this, id);   // never delete the run in progress
-                        runOnUiThread(() -> { sel.clear(); redraw(); reload(); });
-                    });
-                }).show();
+        Ui.sheet(this, n == 1 ? "Delete this timelapse?" : "Delete " + n + " timelapses?",
+                "Their photos and videos are removed from the phone. This can't be undone.", "Delete", true, () -> {
+            final java.util.List<String> ids = new java.util.ArrayList<>(sel);
+            String busy = getSharedPreferences("tl_state", MODE_PRIVATE).getString("session", "");
+            boolean rec = Ui.recordingAlive(this);
+            Ui.IO.execute(() -> {
+                for (String id : ids) if (!(rec && id.equals(busy))) Media.delete(this, id);   // never delete the run in progress
+                runOnUiThread(() -> { sel.clear(); redraw(); reload(); });
+            });
+        });
     }
 
     @Override public void onBackPressed() {

@@ -22,6 +22,15 @@ button:disabled{opacity:.35;cursor:default}
 .primary{background:var(--amber);color:var(--bg);font-weight:700;text-align:center;border:0;border-radius:30px;padding:16px 32px;width:auto;display:inline-block}
 .stop{background:var(--red);color:#fff}
 .danger{color:var(--red)}
+#sheet{position:fixed;inset:0;z-index:9}
+#sheet .scrim{position:absolute;inset:0;background:rgba(0,0,0,.6);opacity:0;transition:opacity 180ms ease}
+#sheet .drawer{position:absolute;left:0;right:0;bottom:0;max-width:560px;margin:0 auto;background:#161512;border-radius:20px 20px 0 0;padding:12px 24px 24px;transform:translateY(100%);transition:transform 240ms var(--out)}
+#sheet.on .scrim{opacity:1}#sheet.on .drawer{transform:none}
+#sheet i{display:block;width:36px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 20px}
+#sheet h2{margin:0 0 8px;font-weight:400;font-size:22px}#sheet p{margin:0 0 24px;color:var(--dim);font-size:14px;line-height:1.4}
+#sheet .two{display:flex;gap:12px}#sheet .two button{border:0;border-radius:28px;padding:18px 0;text-align:center;font-weight:700;text-transform:uppercase;letter-spacing:.14em;font-size:11px;width:auto;flex:1}
+#sheet .keep{background:var(--line)}#sheet .go{background:var(--red);color:var(--bg)}
+@media(prefers-reduced-motion:reduce){#sheet .drawer,#sheet .scrim{transition:none}}
 .chips{display:flex;gap:6px;margin:10px 0 22px;flex-wrap:wrap}
 .chip{padding:11px 18px;border-radius:10px;background:var(--line);cursor:pointer;user-select:none;touch-action:manipulation;transition:transform 160ms var(--out),background-color 160ms ease,color 160ms ease}
 .chip.on{background:var(--amber);color:var(--bg);font-weight:700}
@@ -56,7 +65,7 @@ function home(){
   h+=`<div class="caps ${rec?'live':live||S.daily.on?'wait':''}">${rec?'● Recording':live?'Waiting for light':S.daily.on?'Daily on · next '+clock(S.daily.next):'Ready'}</div><div class="big">${lux}<span style="font-size:18px;color:var(--dim)"> lux</span></div><div class="bar"><i class="${S.lux>=1?'on':''}" style="width:${Math.min(100,Math.log10(1+Math.max(0,S.lux))/4*100)}%"></i><b style="left:${opt.bright?Math.log10(2)/4*100:0}%"></b></div>`;
   if(live){
     const left=S.endAt?S.endAt-S.now:0;
-    h+=`<div class="sum">${S.endAt?'Stops at '+clock(S.endAt):'Running'}<small>${S.count} photos so far${S.endAt?' · '+dur(Math.max(0,left))+' left':''}</small></div><p><button class="primary stop" onclick="stopRec()">Stop</button></p>`;
+    h+=`<div class="sum">${S.endAt?'Stops at '+clock(S.endAt):'Running'}<small>${S.count} photos so far${S.endAt?' · '+dur(Math.max(0,left))+' left':''}</small></div><p><button class="primary stop" onclick="ask('Stop this run?','The photos so far are kept, but this run cannot be continued. Daily runs still start on time.','Stop',stopRec)">Stop</button></p>`;
   }else{
     h+='<div class="caps">Schedule</div>'+chips('mode',[0,1],['Once','Every day']);
     if(opt.mode===0){
@@ -108,7 +117,10 @@ async function setDaily(on){const f=opt.from.split(':'),t=opt.to.split(':');awai
 async function stopRec(){await api('/api/stop','POST');poll()}
 async function makeV(id){await api('/api/makevideo?s='+id,'POST');setTimeout(poll,800)}
 async function rename(id){const n=prompt('Name',S.sessions.find(x=>x.id===id).name);if(n!==null){await api('/api/rename?s='+id+'&name='+encodeURIComponent(n),'POST');poll()}}
-async function del(id){if(confirm('Delete this timelapse and its video from the phone?')){await api('/api/delete?s='+id,'POST');view='home';poll()}}
+function del(id){ask('Delete this timelapse?','Its photos and video are removed from the phone. This can\'t be undone.','Delete',async()=>{await api('/api/delete?s='+id,'POST');view='home';poll()})}
+function ask(t,b,yes,fn){closeAsk();const d=document.createElement('div');d.id='sheet';d.innerHTML=`<div class="scrim" onclick="closeAsk()"></div><div class="drawer" role="dialog" aria-modal="true"><i></i><h2>${esc(t)}</h2><p>${esc(b)}</p><div class="two"><button class="keep" onclick="closeAsk()">Keep</button><button class="go" id="go">${esc(yes)}</button></div></div>`;document.body.appendChild(d);$('#go').onclick=()=>{closeAsk();fn()};requestAnimationFrame(()=>d.classList.add('on'))}
+function closeAsk(){const d=$('#sheet');if(d)d.remove()}
+addEventListener('keydown',e=>{if(e.key==='Escape')closeAsk()})
 let last='';
 function draw(force){
   if(!S)return;

@@ -194,7 +194,7 @@ public class RecordActivity extends Activity {
         root.addView(mid);
 
         Ui.press(main).setOnClickListener(v -> {
-            if (running) stopAndOpen(); else start(endAtMs(), intervalSec(endAtMs() - System.currentTimeMillis()));
+            if (running) Ui.sheet(this, "Stop this run?", "The photos so far are kept, but this run cannot be continued. Daily runs still start on time.", "Stop", true, this::stopAndOpen); else start(endAtMs(), intervalSec(endAtMs() - System.currentTimeMillis()));
         });
         Ui.press(dailyBtn).setOnClickListener(v -> toggleDaily());
         setContentView(sv);
@@ -259,10 +259,8 @@ public class RecordActivity extends Activity {
 
     /** Say why a permission is needed before sending the user to the Android settings page for it. */
     void ask(String title, String why, String action) {
-        new android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert).setTitle(title)
-                .setMessage(why + "\n\nThen come back and press the button again.")
-                .setPositiveButton("Open settings", (d, w) -> startActivity(new Intent(action, Uri.parse("package:" + getPackageName()))))
-                .setNegativeButton("Not now", null).show();
+        Ui.sheet(this, title, why + " Then come back and press the button again.", "Open settings", false,
+                () -> startActivity(new Intent(action, Uri.parse("package:" + getPackageName()))));
     }
 
     void stopAndOpen() {

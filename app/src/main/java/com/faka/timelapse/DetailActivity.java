@@ -122,14 +122,12 @@ public class DetailActivity extends Activity {
                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             startActivity(Intent.createChooser(i, "Share video"));
         });
-        del.setOnClickListener(v -> new AlertDialog.Builder(this)
-                .setTitle("Delete this timelapse?")
-                .setMessage(photos.size() + " photos and the video will be removed from the phone.")
-                .setNegativeButton("Keep", null)
-                .setPositiveButton("Delete", (d, w) -> Ui.IO.execute(() -> {
+        del.setOnClickListener(v -> Ui.sheet(this, "Delete this timelapse?",
+                photos.size() + " photos and the video will be removed from the phone. This can't be undone.", "Delete", true,
+                () -> Ui.IO.execute(() -> {
                     Media.delete(this, id);
                     runOnUiThread(this::finish);
-                })).show());
+                })));
         setContentView(root);
         load();
     }
