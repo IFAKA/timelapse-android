@@ -14,8 +14,12 @@ import java.util.Set;
 /** Library: every timelapse you have made, newest first. */
 public class MainActivity extends Activity {
     final android.os.Handler ui = new android.os.Handler(android.os.Looper.getMainLooper());
-    LinearLayout list;
-    TextView live, remote, daily;
+    LinearLayout list, bar;
+    TextView live, remote, daily, count;
+    Button add;
+    final Set<String> sel = new java.util.LinkedHashSet<>();
+    List<Media.Session> lastS = new java.util.ArrayList<>();
+    Set<String> lastV = new java.util.HashSet<>();
     final BroadcastReceiver rx = new BroadcastReceiver() {
         @Override public void onReceive(Context c, Intent i) { updateLive(); }
     };
@@ -35,6 +39,23 @@ public class MainActivity extends Activity {
         TextView title = Ui.thin(this, "Timelapses", 34);
         title.setPadding(pad, Ui.dp(this, 36), pad, Ui.dp(this, 16));
         col.addView(title);
+        bar = new LinearLayout(this);
+        bar.setGravity(Gravity.CENTER_VERTICAL);
+        bar.setPadding(pad, Ui.dp(this, 4), pad, Ui.dp(this, 12));
+        count = Ui.text(this, "", 17, Ui.TXT);
+        bar.addView(count, new LinearLayout.LayoutParams(0, -2, 1));
+        TextView all = Ui.caps(this, "SELECT ALL", Ui.AMBER);
+        all.setPadding(Ui.dp(this, 12), Ui.dp(this, 12), Ui.dp(this, 12), Ui.dp(this, 12));
+        all.setOnClickListener(v -> selectAll());
+        TextView del = Ui.caps(this, "DELETE", Ui.RED);
+        del.setPadding(Ui.dp(this, 12), Ui.dp(this, 12), Ui.dp(this, 12), Ui.dp(this, 12));
+        del.setOnClickListener(v -> confirmDelete());
+        TextView cancel = Ui.caps(this, "CANCEL", Ui.DIM);
+        cancel.setPadding(Ui.dp(this, 12), Ui.dp(this, 12), 0, Ui.dp(this, 12));
+        cancel.setOnClickListener(v -> clearSelection());
+        bar.addView(all); bar.addView(del); bar.addView(cancel);
+        bar.setVisibility(View.GONE);
+        col.addView(bar);
         live = Ui.caps(this, "", Ui.RED);
         live.setPadding(pad, Ui.dp(this, 14), pad, Ui.dp(this, 14));
         live.setOnClickListener(v -> startActivity(new Intent(this, RecordActivity.class)));
@@ -58,7 +79,7 @@ public class MainActivity extends Activity {
         col.addView(list);
         fl.addView(sv, new FrameLayout.LayoutParams(-1, -1));
 
-        Button add = new Button(this);
+        add = new Button(this);
         add.setText("New timelapse"); add.setAllCaps(false); add.setTextSize(17);
         add.setTypeface(null, android.graphics.Typeface.BOLD);
         add.setTextColor(Ui.BG); add.setBackground(Ui.pill(this, Ui.AMBER, 30));
@@ -102,6 +123,10 @@ public class MainActivity extends Activity {
 
     void show(List<Media.Session> ss, Set<String> videos) {
         if (isDestroyed()) return;
+        lastS = ss; lastV = videos;
+        Set<String> ids = new java.util.HashSet<>();
+        for (Media.Session x : ss) ids.add(x.id);
+        sel.retainAll(ids);
         list.removeAllViews();
         int pad = Ui.dp(this, 24);
         if (ss.isEmpty()) {
@@ -122,7 +147,23 @@ public class MainActivity extends Activity {
             r.setPadding(pad, Ui.dp(this, 14), pad, Ui.dp(this, 14));
             ImageView t = new ImageView(this);
             t.setScaleType(ImageView.ScaleType.CENTER_CROP); t.setBackgroundColor(Ui.LINE);
-            r.addView(t, new LinearLayout.LayoutParams(Ui.dp(this, 72), Ui.dp(this, 72)));
+            FrameLayout tf = new FrameLayout(this);
+            tf.addView(t, new FrameLayout.LayoutParams(-1, -1));
+            boolean on = sel.contains(s.id);
+            if (!sel.isEmpty()) {                                  // selecting: a ring on every photo, filled and ticked when chosen
+                TextView ck = Ui.text(this, on ? "✓" : "", 15, Ui.BG);
+                ck.setGravity(Gravity.CENTER);
+                android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable();
+                g.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+                g.setColor(on ? Ui.AMBER : 0x66000000); g.setStroke(Ui.dp(this, 2), on ? Ui.AMBER : Ui.TXT);
+                ck.setBackground(g);
+                FrameLayout.LayoutParams cl = new FrameLayout.LayoutParams(Ui.dp(this, 24), Ui.dp(this, 24), Gravity.TOP | Gravity.START);
+                cl.setMargins(Ui.dp(this, 6), Ui.dp(this, 6), 0, 0);
+                tf.addView(ck, cl);
+                t.setAlpha(on ? 0.6f : 1f);
+            }
+            if (on) r.setBackgroundColor(0xFF1A1914);
+            r.addView(tf, new LinearLayout.LayoutParams(Ui.dp(this, 72), Ui.dp(this, 72)));
             LinearLayout c = new LinearLayout(this);
             c.setOrientation(LinearLayout.VERTICAL);
             c.setPadding(Ui.dp(this, 16), 0, 0, 0);
@@ -137,7 +178,11 @@ public class MainActivity extends Activity {
             }
             r.addView(c, new LinearLayout.LayoutParams(0, -2, 1));
             r.addView(Ui.text(this, "›", 22, Ui.DIM));
-            Ui.press(r).setOnClickListener(v -> startActivity(new Intent(this, DetailActivity.class).putExtra("session", s.id)));
+            Ui.press(r).setOnClickListener(v -> {
+                if (sel.isEmpty()) startActivity(new Intent(this, DetailActivity.class).putExtra("session", s.id));
+                else toggle(s.id);
+            });
+            r.setOnLongClickListener(v -> { v.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS); toggle(s.id); return true; });
             list.addView(r);
             list.addView(Ui.hairline(this));
             Ui.IO.execute(() -> {
@@ -145,6 +190,48 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> { if (bm != null) t.setImageBitmap(bm); });
             });
         }
+    }
+
+    void toggle(String id) {
+        if (!sel.remove(id)) sel.add(id);
+        redraw();
+    }
+
+    void selectAll() {
+        if (sel.size() == lastS.size()) sel.clear();
+        else for (Media.Session x : lastS) sel.add(x.id);
+        redraw();
+    }
+
+    void clearSelection() { sel.clear(); redraw(); }
+
+    void redraw() {
+        boolean on = !sel.isEmpty();
+        bar.setVisibility(on ? View.VISIBLE : View.GONE);
+        add.setVisibility(on ? View.GONE : View.VISIBLE);
+        count.setText(sel.size() + " selected");
+        show(lastS, lastV);
+    }
+
+    void confirmDelete() {
+        int n = sel.size();
+        if (n == 0) return;
+        new android.app.AlertDialog.Builder(this).setTitle(n == 1 ? "Delete this timelapse?" : "Delete " + n + " timelapses?")
+                .setMessage("Their photos and videos are removed from the phone.")
+                .setNegativeButton("Keep", null)
+                .setPositiveButton("Delete", (d, w) -> {
+                    final java.util.List<String> ids = new java.util.ArrayList<>(sel);
+                    String busy = getSharedPreferences("tl_state", MODE_PRIVATE).getString("session", "");
+                    boolean rec = Ui.recordingAlive(this);
+                    Ui.IO.execute(() -> {
+                        for (String id : ids) if (!(rec && id.equals(busy))) Media.delete(this, id);   // never delete the run in progress
+                        runOnUiThread(() -> { sel.clear(); redraw(); reload(); });
+                    });
+                }).show();
+    }
+
+    @Override public void onBackPressed() {
+        if (!sel.isEmpty()) clearSelection(); else super.onBackPressed();
     }
 
     void updateRemote() {

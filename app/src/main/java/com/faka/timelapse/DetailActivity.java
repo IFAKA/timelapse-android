@@ -23,8 +23,12 @@ public class DetailActivity extends Activity {
     ImageView frame;
     SeekBar seek;
     TextView title, meta, frameLabel, videoText;
-    Button make, cancel, play, share;
+    Button make, cancel, share;
     VideoView player;
+    TextView tabVideo, tabPhotos, playMark;
+    View tabsRow;
+    boolean videoMode, userChoseMode;
+    final android.os.Handler tick = new android.os.Handler(android.os.Looper.getMainLooper());
     final BroadcastReceiver rx = new BroadcastReceiver() {
         @Override public void onReceive(Context c, Intent i) { if (!VideoService.working) checkVideo(); else refresh(); }
     };
@@ -49,16 +53,42 @@ public class DetailActivity extends Activity {
         meta.setPadding(pad, Ui.dp(this, 10), pad, Ui.dp(this, 20));
         root.addView(title); root.addView(meta);
 
-        // Frame viewer
+        // Viewer: the video plays here (no other app), or the photos are scrubbed here
+        LinearLayout tabs = new LinearLayout(this);
+        tabs.setPadding(pad, 0, pad, Ui.dp(this, 10));
+        tabVideo = Ui.caps(this, "VIDEO", Ui.AMBER);
+        tabPhotos = Ui.caps(this, "PHOTOS", Ui.DIM);
+        tabVideo.setPadding(0, Ui.dp(this, 8), Ui.dp(this, 24), Ui.dp(this, 8));
+        tabPhotos.setPadding(0, Ui.dp(this, 8), 0, Ui.dp(this, 8));
+        tabVideo.setOnClickListener(v -> { userChoseMode = true; setMode(true); });
+        tabPhotos.setOnClickListener(v -> { userChoseMode = true; setMode(false); });
+        tabs.addView(tabVideo); tabs.addView(tabPhotos);
+        tabs.setVisibility(View.GONE);
+        root.addView(tabs);
+        tabsRow = tabs;
+        FrameLayout stage = new FrameLayout(this);
+        stage.setBackgroundColor(0xFF000000);
         frame = new ImageView(this);
         frame.setScaleType(ImageView.ScaleType.CENTER_CROP);
         frame.setBackgroundColor(Ui.LINE);
-        root.addView(frame, new LinearLayout.LayoutParams(-1, Ui.dp(this, 360)));
+        stage.addView(frame, new FrameLayout.LayoutParams(-1, -1));
+        player = new VideoView(this);
+        player.setVisibility(View.GONE);
+        stage.addView(player, new FrameLayout.LayoutParams(-1, -1, android.view.Gravity.CENTER));
+        playMark = Ui.text(this, "▶", 56, Ui.TXT);
+        playMark.setGravity(android.view.Gravity.CENTER);
+        playMark.setVisibility(View.GONE);
+        stage.addView(playMark, new FrameLayout.LayoutParams(-1, -1));
+        stage.setOnClickListener(v -> { if (videoMode) togglePlay(); });
+        root.addView(stage, new LinearLayout.LayoutParams(-1, Ui.dp(this, 360)));
         seek = new SeekBar(this);
         seek.setPadding(pad, Ui.dp(this, 14), pad, Ui.dp(this, 6));
         seek.getProgressDrawable().setTint(Ui.AMBER); seek.getThumb().setTint(Ui.AMBER);
         seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override public void onProgressChanged(SeekBar s, int p, boolean user) { if (user) show(p); }
+            @Override public void onProgressChanged(SeekBar s, int p, boolean user) {
+                if (!user) return;
+                if (videoMode) { player.seekTo(p); frameLabel.setText(clock(p) + " / " + clock(player.getDuration())); } else show(p);
+            }
             @Override public void onStartTrackingTouch(SeekBar s) {}
             @Override public void onStopTrackingTouch(SeekBar s) {}
         });
@@ -77,13 +107,9 @@ public class DetailActivity extends Activity {
         vb.addView(Ui.hairline(this));
         make = Ui.row(this, "Make video", Ui.TXT);
         cancel = Ui.row(this, "Cancel", Ui.TXT);
-        play = Ui.row(this, "Play", Ui.TXT);
         share = Ui.row(this, "Share", Ui.TXT);
         Button del = Ui.row(this, "Delete timelapse", Ui.RED);
-        for (Button x : new Button[]{make, cancel, play, share}) { vb.addView(x); vb.addView(Ui.hairline(this)); }
-        player = new VideoView(this);
-        player.setVisibility(View.GONE);
-        vb.addView(player, new LinearLayout.LayoutParams(-1, Ui.dp(this, 260)));
+        for (Button x : new Button[]{make, cancel, share}) { vb.addView(x); vb.addView(Ui.hairline(this)); }
         TextView gap = new TextView(this); vb.addView(gap, new LinearLayout.LayoutParams(-1, Ui.dp(this, 24)));
         vb.addView(Ui.hairline(this)); vb.addView(del); vb.addView(Ui.hairline(this));
         vb.setPadding(pad, Ui.dp(this, 32), pad, Ui.dp(this, 48));
@@ -94,7 +120,6 @@ public class DetailActivity extends Activity {
             refresh();
         });
         cancel.setOnClickListener(v -> startService(new Intent(this, VideoService.class).setAction("CANCEL")));
-        play.setOnClickListener(v -> play());
         share.setOnClickListener(v -> {
             Uri u = Media.video(this, id);
             if (u == null) return;
@@ -126,8 +151,7 @@ public class DetailActivity extends Activity {
                 info = f; photos = p; hasVideo = v;
                 if (p.isEmpty()) { finish(); return; }
                 meta.setText(p.size() + " PHOTOS  ·  " + Ui.duration(f == null ? 0 : f.endMs - f.startMs).toUpperCase());
-                seek.setMax(p.size() - 1); seek.setProgress(p.size() - 1);
-                show(p.size() - 1);
+                setMode(hasVideo && !userChoseMode ? true : videoMode && hasVideo);
                 refresh();
             });
         });
@@ -136,7 +160,11 @@ public class DetailActivity extends Activity {
     void checkVideo() {
         Ui.IO.execute(() -> {
             boolean v = Media.video(this, id) != null;
-            runOnUiThread(() -> { hasVideo = v; refresh(); });
+            runOnUiThread(() -> {
+                boolean fresh = v && !hasVideo;
+                hasVideo = v; refresh();
+                if (fresh || (!v && videoMode)) setMode(v);          // a video just finished: show it
+            });
         });
     }
 
@@ -168,8 +196,52 @@ public class DetailActivity extends Activity {
         make.setText(hasVideo ? "Make video again" : "Make video");
         make.setEnabled(!VideoService.working); make.setAlpha(make.isEnabled() ? 1f : 0.35f);
         cancel.setVisibility(busyMine ? View.VISIBLE : View.GONE);
-        play.setVisibility(hasVideo ? View.VISIBLE : View.GONE);
         share.setVisibility(hasVideo ? View.VISIBLE : View.GONE);
+        tabsRow.setVisibility(hasVideo ? View.VISIBLE : View.GONE);
+    }
+
+    String clock(int ms) { int t = Math.max(0, ms) / 1000; return (t / 60) + ":" + String.format(java.util.Locale.US, "%02d", t % 60); }
+
+    /** Video tab: plays the video in the app, looping. Photos tab: scrub the frames. */
+    void setMode(boolean video) {
+        videoMode = video && hasVideo;
+        tabVideo.setTextColor(videoMode ? Ui.AMBER : Ui.DIM);
+        tabPhotos.setTextColor(videoMode ? Ui.DIM : Ui.AMBER);
+        tick.removeCallbacksAndMessages(null);
+        if (videoMode) {
+            frame.setVisibility(View.GONE); player.setVisibility(View.VISIBLE);
+            Uri u = Media.video(this, id);
+            if (u == null) { videoMode = false; setMode(false); return; }
+            player.setOnPreparedListener(m -> {
+                m.setLooping(true);
+                seek.setMax(Math.max(1, player.getDuration())); seek.setProgress(0);
+                player.start(); playMark.setVisibility(View.GONE);
+                tick.post(this::follow);
+            });
+            player.setVideoURI(u);
+        } else {
+            player.stopPlayback(); player.setVisibility(View.GONE); playMark.setVisibility(View.GONE);
+            frame.setVisibility(View.VISIBLE);
+            if (!photos.isEmpty()) {
+                seek.setMax(photos.size() - 1); seek.setProgress(photos.size() - 1);
+                show(photos.size() - 1);
+            }
+        }
+    }
+
+    void togglePlay() {
+        if (player.isPlaying()) { player.pause(); playMark.setVisibility(View.VISIBLE); }
+        else { player.start(); playMark.setVisibility(View.GONE); }
+    }
+
+    /** Move the seek bar along with the video. */
+    void follow() {
+        if (!videoMode) return;
+        if (player.isPlaying()) {
+            seek.setProgress(player.getCurrentPosition());
+            frameLabel.setText(clock(player.getCurrentPosition()) + " / " + clock(player.getDuration()));
+        }
+        tick.postDelayed(this::follow, 100);
     }
 
     void rename() {
@@ -183,28 +255,16 @@ public class DetailActivity extends Activity {
                 }).show();
     }
 
-    void play() {
-        Uri u = Media.video(this, id);
-        if (u == null) return;
-        try {
-            startActivity(new Intent(Intent.ACTION_VIEW).setDataAndType(u, "video/mp4").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION));
-        } catch (ActivityNotFoundException ex) {
-            player.setVisibility(View.VISIBLE);
-            player.setMediaController(new MediaController(this));
-            player.setVideoURI(u);
-            player.setOnPreparedListener(m -> { m.setLooping(true); player.start(); });
-        }
-    }
-
     @Override protected void onResume() {
         super.onResume();
         registerReceiver(rx, new IntentFilter(TimelapseService.ACTION), RECEIVER_NOT_EXPORTED);
-        if (info != null) checkVideo();
+        if (info != null) { checkVideo(); if (videoMode) setMode(true); }
     }
 
     @Override protected void onPause() {
         super.onPause();
         unregisterReceiver(rx);
+        tick.removeCallbacksAndMessages(null);
         player.stopPlayback();
     }
 }
