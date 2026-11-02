@@ -23,7 +23,7 @@ public class DetailActivity extends Activity {
     ImageView frame;
     SeekBar seek;
     TextView title, meta, frameLabel, videoText;
-    Button make, cancel, share;
+    TextView make, cancel, share;
     VideoView player;
     TextView tabVideo, tabPhotos, playMark;
     View tabsRow;
@@ -39,23 +39,22 @@ public class DetailActivity extends Activity {
         id = getIntent().getStringExtra("session");
         if (id == null) { finish(); return; }
         int pad = Ui.dp(this, 24);
-        ScrollView sv = new ScrollView(this);
-        sv.setBackgroundColor(Ui.BG); sv.setFitsSystemWindows(true);
+        // One screen, no scrolling: the viewer takes whatever height is left between the title and the buttons.
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        sv.addView(root);
+        root.setBackgroundColor(Ui.BG); root.setFitsSystemWindows(true);
         root.addView(Ui.back(this, "Timelapses"));
 
-        title = Ui.thin(this, Media.name(this, id), 30);
-        title.setPadding(pad, Ui.dp(this, 8), pad, 0);
+        title = Ui.thin(this, Media.name(this, id), 26);
+        title.setPadding(pad, Ui.dp(this, 2), pad, 0);
         title.setOnClickListener(v -> rename());
         meta = Ui.caps(this, "", Ui.DIM);
-        meta.setPadding(pad, Ui.dp(this, 10), pad, Ui.dp(this, 20));
+        meta.setPadding(pad, Ui.dp(this, 6), pad, Ui.dp(this, 8));
         root.addView(title); root.addView(meta);
 
         // Viewer: the video plays here (no other app), or the photos are scrubbed here
         LinearLayout tabs = new LinearLayout(this);
-        tabs.setPadding(pad, 0, pad, Ui.dp(this, 10));
+        tabs.setPadding(pad, 0, pad, Ui.dp(this, 4));
         tabVideo = Ui.caps(this, "VIDEO", Ui.AMBER);
         tabPhotos = Ui.caps(this, "PHOTOS", Ui.DIM);
         tabVideo.setPadding(0, Ui.dp(this, 8), Ui.dp(this, 24), Ui.dp(this, 8));
@@ -80,9 +79,9 @@ public class DetailActivity extends Activity {
         playMark.setVisibility(View.GONE);
         stage.addView(playMark, new FrameLayout.LayoutParams(-1, -1));
         stage.setOnClickListener(v -> { if (videoMode) togglePlay(); });
-        root.addView(stage, new LinearLayout.LayoutParams(-1, Ui.dp(this, 360)));
+        root.addView(stage, new LinearLayout.LayoutParams(-1, 0, 1));
         seek = new SeekBar(this);
-        seek.setPadding(pad, Ui.dp(this, 14), pad, Ui.dp(this, 6));
+        seek.setPadding(pad, Ui.dp(this, 12), pad, Ui.dp(this, 4));
         seek.getProgressDrawable().setTint(Ui.AMBER); seek.getThumb().setTint(Ui.AMBER);
         seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar s, int p, boolean user) {
@@ -96,24 +95,20 @@ public class DetailActivity extends Activity {
         frameLabel.setPadding(pad, 0, pad, 0);
         root.addView(seek); root.addView(frameLabel);
 
-        // Video
-        LinearLayout vb = new LinearLayout(this);
-        vb.setOrientation(LinearLayout.VERTICAL);
-        vb.setPadding(pad, Ui.dp(this, 32), pad, 0);
-        vb.addView(Ui.caps(this, "VIDEO", Ui.DIM));
-        videoText = Ui.text(this, "", 14, Ui.DIM);
-        videoText.setPadding(0, Ui.dp(this, 8), 0, Ui.dp(this, 8));
-        vb.addView(videoText);
-        vb.addView(Ui.hairline(this));
-        make = Ui.row(this, "Make video", Ui.TXT);
-        cancel = Ui.row(this, "Cancel", Ui.TXT);
-        share = Ui.row(this, "Share", Ui.TXT);
-        Button del = Ui.row(this, "Delete timelapse", Ui.RED);
-        for (Button x : new Button[]{make, cancel, share}) { vb.addView(x); vb.addView(Ui.hairline(this)); }
-        TextView gap = new TextView(this); vb.addView(gap, new LinearLayout.LayoutParams(-1, Ui.dp(this, 24)));
-        vb.addView(Ui.hairline(this)); vb.addView(del); vb.addView(Ui.hairline(this));
-        vb.setPadding(pad, Ui.dp(this, 32), pad, Ui.dp(this, 48));
-        root.addView(vb);
+        // Status line and one row of actions
+        videoText = Ui.text(this, "", 13, Ui.DIM);
+        videoText.setSingleLine(true); videoText.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        videoText.setPadding(pad, Ui.dp(this, 6), pad, Ui.dp(this, 2));
+        root.addView(videoText);
+        root.addView(Ui.hairline(this));
+        LinearLayout acts = new LinearLayout(this);
+        acts.setPadding(Ui.dp(this, 12), 0, Ui.dp(this, 12), Ui.dp(this, 4));
+        make = action("MAKE VIDEO", Ui.AMBER);
+        cancel = action("CANCEL", Ui.TXT);
+        share = action("SHARE", Ui.TXT);
+        TextView del = action("DELETE", Ui.RED);
+        for (TextView x : new TextView[]{make, cancel, share, del}) acts.addView(x, new LinearLayout.LayoutParams(0, Ui.dp(this, 52), 1));
+        root.addView(acts);
 
         make.setOnClickListener(v -> {
             Plan.makeVideo(this, id);
@@ -135,8 +130,14 @@ public class DetailActivity extends Activity {
                     Media.delete(this, id);
                     runOnUiThread(this::finish);
                 })).show());
-        setContentView(sv);
+        setContentView(root);
         load();
+    }
+
+    TextView action(String label, int color) {
+        TextView t = Ui.caps(this, label, color);
+        t.setGravity(android.view.Gravity.CENTER);
+        return Ui.press(t);
     }
 
     void load() {
@@ -193,7 +194,7 @@ public class DetailActivity extends Activity {
         String v = s.getString("video", "");
         videoText.setText(mine && !v.isEmpty() && !v.equals("-") && (busyMine || !hasVideo || v.startsWith("Saved")) ? v
                 : hasVideo ? "Video ready." : "No video yet. It is built from these photos, 24 per second.");
-        make.setText(hasVideo ? "Make video again" : "Make video");
+        make.setText(hasVideo ? "MAKE AGAIN" : "MAKE VIDEO");
         make.setEnabled(!VideoService.working); make.setAlpha(make.isEnabled() ? 1f : 0.35f);
         cancel.setVisibility(busyMine ? View.VISIBLE : View.GONE);
         share.setVisibility(hasVideo ? View.VISIBLE : View.GONE);

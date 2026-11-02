@@ -69,6 +69,8 @@ public class WebService extends Service {
         return ip == null || port == 0 ? null : "http://" + ip + ":" + port + "/?k=" + key(c);
     }
 
+    /** An unusual port, so it does not clash with other apps. If it is busy, the next 9 are tried. */
+    static final int PORT = 47831;
     static WebService inst;
     boolean fg;
 
@@ -95,7 +97,7 @@ public class WebService extends Service {
     }
 
     void serve() {
-        for (int p = 8080; p < 8090 && server == null; p++) {
+        for (int p = PORT; p < PORT + 10 && server == null; p++) {
             try { server = new ServerSocket(p); port = p; } catch (IOException e) {}
         }
         if (server == null) { Log.w(TAG, "no free port"); return; }
