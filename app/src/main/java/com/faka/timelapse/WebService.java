@@ -66,7 +66,7 @@ public class WebService extends Service {
 
     static String url(Context c) {
         String ip = ip();
-        return ip == null || port == 0 ? null : "http://" + ip + ":" + port + "/?k=" + key(c);
+        return ip == null || port == 0 ? null : "https://" + ip + ":" + port + "/?k=" + key(c);
     }
 
     /** An unusual port, so it does not clash with other apps. If it is busy, the next 9 are tried. */
@@ -96,9 +96,63 @@ public class WebService extends Service {
         return START_STICKY;
     }
 
+    // Self-signed certificate, made once and kept in the app's private storage.
+    static javax.net.ssl.SSLServerSocketFactory tls(Context c) throws Exception {
+        char[] pw = "tl".toCharArray();
+        File f = new File(c.getFilesDir(), "web.p12");
+        java.security.KeyStore ks = java.security.KeyStore.getInstance("PKCS12");
+        if (f.exists()) {
+            try (InputStream in = new FileInputStream(f)) { ks.load(in, pw); }
+        } else {
+            java.security.KeyPairGenerator g = java.security.KeyPairGenerator.getInstance("RSA");
+            g.initialize(2048);
+            java.security.KeyPair kp = g.generateKeyPair();
+            byte[] alg = der(0x30, der(0x06, new byte[]{0x2A, (byte) 0x86, 0x48, (byte) 0x86, (byte) 0xF7, 0x0D, 0x01, 0x01, 0x0B}), new byte[]{5, 0});
+            byte[] name = der(0x30, der(0x31, der(0x30, der(0x06, new byte[]{0x55, 0x04, 0x03}), der(0x0C, "Timelapse".getBytes("UTF-8")))));
+            java.text.SimpleDateFormat df = new java.text.SimpleDateFormat("yyMMddHHmmss'Z'", Locale.US);
+            df.setTimeZone(TimeZone.getTimeZone("UTC"));
+            long now = System.currentTimeMillis();
+            byte[] valid = der(0x30, der(0x17, df.format(new Date(now - 86400000L)).getBytes("US-ASCII")),
+                    der(0x17, df.format(new Date(now + 3650L * 86400000L)).getBytes("US-ASCII")));
+            byte[] tbs = der(0x30, der(0xA0, der(0x02, new byte[]{2})), der(0x02, new byte[]{1, (byte) (now & 0x7F)}),
+                    alg, name, valid, name, kp.getPublic().getEncoded());
+            java.security.Signature sg = java.security.Signature.getInstance("SHA256withRSA");
+            sg.initSign(kp.getPrivate());
+            sg.update(tbs);
+            byte[] sig = sg.sign();
+            byte[] bits = new byte[sig.length + 1];
+            System.arraycopy(sig, 0, bits, 1, sig.length);
+            byte[] cert = der(0x30, tbs, alg, der(0x03, bits));
+            java.security.cert.Certificate cc = java.security.cert.CertificateFactory.getInstance("X.509")
+                    .generateCertificate(new ByteArrayInputStream(cert));
+            ks.load(null, null);
+            ks.setKeyEntry("tl", kp.getPrivate(), pw, new java.security.cert.Certificate[]{cc});
+            try (OutputStream out = new FileOutputStream(f)) { ks.store(out, pw); }
+        }
+        javax.net.ssl.KeyManagerFactory kmf = javax.net.ssl.KeyManagerFactory.getInstance(javax.net.ssl.KeyManagerFactory.getDefaultAlgorithm());
+        kmf.init(ks, pw);
+        javax.net.ssl.SSLContext ctx = javax.net.ssl.SSLContext.getInstance("TLS");
+        ctx.init(kmf.getKeyManagers(), null, null);
+        return ctx.getServerSocketFactory();
+    }
+
+    // One DER element: tag, length, then the parts joined.
+    static byte[] der(int tag, byte[]... parts) {
+        ByteArrayOutputStream body = new ByteArrayOutputStream();
+        for (byte[] p : parts) body.write(p, 0, p.length);
+        int n = body.size();
+        ByteArrayOutputStream o = new ByteArrayOutputStream();
+        o.write(tag);
+        if (n < 128) o.write(n);
+        else if (n < 256) { o.write(0x81); o.write(n); }
+        else { o.write(0x82); o.write(n >> 8); o.write(n & 255); }
+        o.write(body.toByteArray(), 0, n);
+        return o.toByteArray();
+    }
+
     void serve() {
         for (int p = PORT; p < PORT + 10 && server == null; p++) {
-            try { server = new ServerSocket(p); port = p; } catch (IOException e) {}
+            try { server = tls(this).createServerSocket(p); port = p; } catch (Exception e) { Log.w(TAG, "bind " + p + ": " + e); }
         }
         if (server == null) { Log.w(TAG, "no free port"); return; }
         Log.i(TAG, "listening on " + port);
