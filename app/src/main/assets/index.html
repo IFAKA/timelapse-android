@@ -2,137 +2,211 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Timelapse</title>
 <style>
-:root{--bg:#0c0c0b;--tx:#f2efe8;--dim:#77736b;--line:#24231f;--amber:#ffb020;--red:#ff5a47}
+:root{--bg:#0c0c0b;--tx:#f2efe8;--dim:#77736b;--line:#24231f;--line2:#2e2d28;--amber:#ffb020;--red:#ff5a47;--out:cubic-bezier(.23,1,.32,1)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-:root{--out:cubic-bezier(.23,1,.32,1)}
 body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 -apple-system,"Segoe UI",Roboto,sans-serif}
-main{max-width:880px;margin:0 auto;padding:32px 24px 80px}
-h1{font-weight:200;font-size:40px;margin:0 0 24px}
+h1{font-weight:200;font-size:36px;margin:0;letter-spacing:-.01em}
+h2{font-weight:300;font-size:30px;margin:0}
 .caps{font-size:11px;letter-spacing:.18em;font-weight:700;color:var(--dim);text-transform:uppercase}
-.row{display:flex;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid var(--line);cursor:pointer}
-.row img{width:96px;height:96px;object-fit:cover;background:var(--line);border-radius:2px}
-.row .n{font-size:18px}.row .m{color:var(--dim);font-size:14px;margin-top:4px}
-.tag{color:var(--amber);font-size:11px;letter-spacing:.18em;font-weight:700;margin-top:6px}
-button,.btn{font:inherit;color:var(--tx);background:none;border:0;border-bottom:1px solid var(--line);width:100%;text-align:left;padding:16px 0;cursor:pointer;text-decoration:none;display:block}
-button,.row{touch-action:manipulation;transition:transform 160ms var(--out),opacity 160ms ease}
-button:active,.chip:active,.row:active{transform:scale(.97)}
-@media (hover:hover) and (pointer:fine){.row:hover .n{color:var(--amber)}.chip:not(.on):hover{background:#2e2d28}}
-@media (prefers-reduced-motion:reduce){button,.chip,.row{transition:none}button:active,.chip:active,.row:active{transform:none}}
-button:disabled{opacity:.35;cursor:default}
-.primary{background:var(--amber);color:var(--bg);font-weight:700;text-align:center;border:0;border-radius:30px;padding:16px 32px;width:auto;display:inline-block}
-.stop{background:var(--red);color:#fff}
-.danger{color:var(--red)}
+.dim{color:var(--dim)}
+/* desktop first: controls on the left, library on the right */
+.shell{display:grid;grid-template-columns:340px minmax(0,1fr);gap:56px;max-width:1500px;margin:0 auto;padding:40px 48px 80px}
+.side{position:sticky;top:40px;align-self:start;max-height:calc(100vh - 80px);overflow:auto;padding-right:4px}
+.side h1{margin-bottom:6px}
+.light{font-size:14px;color:var(--dim);margin:8px 0 8px}.light.dark{color:var(--amber)}
+.bar{height:4px;background:var(--line);border-radius:4px;position:relative;margin:0 0 4px}
+.bar i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--dim)}
+.bar i.on{background:var(--amber)}.bar b{position:absolute;top:-7px;width:2px;height:18px;background:var(--tx)}
+.live{color:var(--red)}.wait{color:var(--amber)}
+.grp{margin-top:24px}
+.chips{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.chip{padding:11px 16px;border-radius:10px;background:var(--line);cursor:pointer;user-select:none;touch-action:manipulation;transition:transform 160ms var(--out),background-color 160ms ease,color 160ms ease}
+.chip.on{background:var(--amber);color:var(--bg);font-weight:700}
+.chip:active{transform:scale(.97)}
+input[type=time]{background:var(--line);color:var(--amber);border:0;border-radius:10px;padding:11px 12px;font:inherit;width:100%}
+.two{display:flex;gap:6px}.two>*{flex:1}
+.more{margin-top:22px}.more summary{cursor:pointer;list-style:none}.more summary::-webkit-details-marker{display:none}
+.hint{font-size:13px;color:var(--dim);margin:8px 0 0}
+.sum{margin-top:28px;font-size:17px}.sum small{display:block;color:var(--dim);font-size:13px;margin-top:4px}
+.go{display:block;width:100%;margin-top:18px;border:0;border-radius:30px;padding:19px;font:inherit;font-size:17px;font-weight:700;background:var(--amber);color:var(--bg);cursor:pointer;transition:transform 160ms var(--out),opacity 160ms ease}
+.go:active{transform:scale(.97)}
+.go.stop{background:var(--red);color:var(--tx)}.go.quiet{background:var(--line);color:var(--tx)}
+/* library */
+.head{display:flex;align-items:baseline;justify-content:space-between;min-height:44px;margin-bottom:20px}
+.acts{display:flex;gap:22px;align-items:center}
+.lnk{background:none;border:0;color:var(--amber);font:inherit;font-size:11px;letter-spacing:.18em;font-weight:700;text-transform:uppercase;cursor:pointer;padding:6px 0}
+.lnk.red{color:var(--red)}.lnk.mute{color:var(--dim)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:20px}
+.card{position:relative;cursor:pointer;border-radius:10px;overflow:hidden;background:#141311;transition:transform 160ms var(--out),background-color 160ms ease}
+.card:active{transform:scale(.98)}
+.card img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:var(--line);transition:opacity 160ms ease}
+.card .t{padding:12px 14px 14px}.card .n{font-size:16px}.card .m{color:var(--dim);font-size:13px;margin-top:2px}
+.tag{color:var(--amber);font-size:10px;letter-spacing:.18em;font-weight:700;margin-top:8px}
+.ck{position:absolute;left:10px;top:10px;width:26px;height:26px;border-radius:50%;border:2px solid var(--tx);background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--bg);opacity:0;transition:opacity 160ms ease}
+.card:hover .ck,.picking .ck{opacity:1}
+.card.sel{background:#1a1914}.card.sel img{opacity:.6}.card.sel .ck{background:var(--amber);border-color:var(--amber);opacity:1}
+@media (hover:hover) and (pointer:fine){.card:hover .n{color:var(--amber)}.chip:not(.on):hover{background:var(--line2)}.lnk:hover{opacity:.8}}
+.empty{color:var(--dim);padding:40px 0}
+/* one timelapse */
+.back{color:var(--dim);cursor:pointer;font-size:11px;letter-spacing:.18em;font-weight:700;text-transform:uppercase;background:none;border:0;padding:0}
+.dgrid{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:40px;margin-top:20px}
+.stage{background:#000;border-radius:10px;overflow:hidden}
+.stage video,.stage img{display:block;width:100%;max-height:calc(100vh - 250px);object-fit:contain;background:#000;margin:0 auto}
+input[type=range]{width:100%;accent-color:var(--amber);margin:14px 0 4px}
+.tabs{display:flex;gap:24px;margin:18px 0 12px}
+.tab{background:none;border:0;border-bottom:2px solid transparent;color:var(--dim);font:inherit;font-size:11px;letter-spacing:.18em;font-weight:700;text-transform:uppercase;padding:6px 0;cursor:pointer}
+.tab.on{color:var(--tx);border-color:var(--amber)}
+.side2 button,.side2 a{display:block;width:100%;text-align:left;font:inherit;color:var(--tx);text-decoration:none;background:none;border:0;border-bottom:1px solid var(--line);padding:15px 0;cursor:pointer;transition:transform 160ms var(--out),opacity 160ms ease}
+.side2 button:active{transform:scale(.98)}
+.side2 button:disabled{opacity:.35;cursor:default}.side2 .danger{color:var(--red)}
+@media (hover:hover) and (pointer:fine){.side2 button:not(:disabled):hover,.side2 a:hover{color:var(--amber)}.side2 .danger:hover{color:var(--red);opacity:.8}}
+/* confirmation drawer */
 #sheet{position:fixed;inset:0;z-index:9}
 #sheet .scrim{position:absolute;inset:0;background:rgba(0,0,0,.6);opacity:0;transition:opacity 180ms ease}
 #sheet .drawer{position:absolute;left:0;right:0;bottom:0;max-width:560px;margin:0 auto;background:#161512;border-radius:20px 20px 0 0;padding:12px 24px 24px;transform:translateY(100%);transition:transform 240ms var(--out)}
 #sheet.on .scrim{opacity:1}#sheet.on .drawer{transform:none}
 #sheet i{display:block;width:36px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 20px}
-#sheet h2{margin:0 0 8px;font-weight:400;font-size:22px}#sheet p{margin:0 0 24px;color:var(--dim);font-size:14px;line-height:1.4}
-#sheet .two{display:flex;gap:12px}#sheet .two button{border:0;border-radius:28px;padding:18px 0;text-align:center;font-weight:700;text-transform:uppercase;letter-spacing:.14em;font-size:11px;width:auto;flex:1}
-#sheet .keep{background:var(--line)}#sheet .go{background:var(--red);color:var(--bg)}
-@media(prefers-reduced-motion:reduce){#sheet .drawer,#sheet .scrim{transition:none}}
-.chips{display:flex;gap:6px;margin:10px 0 22px;flex-wrap:wrap}
-.chip{padding:11px 18px;border-radius:10px;background:var(--line);cursor:pointer;user-select:none;touch-action:manipulation;transition:transform 160ms var(--out),background-color 160ms ease,color 160ms ease}
-.chip.on{background:var(--amber);color:var(--bg);font-weight:700}
-.big{font-size:80px;font-weight:200;line-height:1}
-.bar{height:4px;background:var(--line);border-radius:4px;position:relative;margin:10px 0 24px}
-.bar i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--dim)}
-.bar i.on{background:var(--amber)}.bar b{position:absolute;top:-7px;width:2px;height:18px;background:var(--tx)}
-.live{color:var(--red)}.wait{color:var(--amber)}
-.sum{color:var(--amber);font-size:18px}.sum small{display:block;color:var(--dim);font-size:14px;margin-top:4px}
-img.frame{width:100%;max-height:70vh;object-fit:contain;background:var(--line);display:block}
-video{width:100%;background:#000;margin-top:12px}
-input[type=range]{width:100%;accent-color:var(--amber);margin:14px 0 6px}
-input[type=number],input[type=time]{background:var(--line);color:var(--amber);border:0;border-radius:8px;padding:10px;font:inherit;width:100px}
-a.back{color:var(--dim);cursor:pointer;font-size:11px;letter-spacing:.18em;font-weight:700}
-.card{border-top:1px solid var(--line);padding-top:24px;margin-top:28px}
-</style></head><body><main id="app"></main>
+#sheet h3{margin:0 0 8px;font-weight:400;font-size:22px}#sheet p{margin:0 0 24px;color:var(--dim);font-size:14px;line-height:1.4}
+#sheet .btns{display:flex;gap:12px}#sheet .btns button{border:0;border-radius:28px;padding:18px 0;text-align:center;font:inherit;font-weight:700;text-transform:uppercase;letter-spacing:.14em;font-size:11px;flex:1;cursor:pointer;color:var(--tx)}
+#sheet .keep{background:var(--line)}#sheet .yes{background:var(--red);color:var(--bg)}
+@media (max-width:960px){
+  .shell{grid-template-columns:1fr;gap:32px;padding:24px 20px 60px}
+  .side{position:static;max-height:none}
+  .dgrid{grid-template-columns:1fr}
+  body[data-v=new] main,body:not([data-v=new]) .side{display:none}
+  .only-narrow{display:inline-block!important}
+}
+.only-narrow{display:none}
+.newbtn{border:0;border-radius:24px;padding:12px 18px;background:var(--amber);color:var(--bg);font:inherit;font-weight:700;cursor:pointer;transition:transform 160ms var(--out)}
+.newbtn:active{transform:scale(.97)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style></head><body>
+<div class="shell"><aside class="side" id="side"></aside><main id="main"></main></div>
 <script>
 const $=s=>document.querySelector(s);
-let S=null, view='home', cur=null, frames=0, frameIdx=-1, opt={mode:0,hours:4,video:30,bright:1,until:'18:00',from:'07:00',to:'19:00',keep:14,init:0};
-const H=[1,2,4,8,12,0];
+let S=null,view='home',cur=null,tab='',frames=0,frameIdx=-1,more=false,sel=new Set(),
+    opt={mode:0,hours:4,video:30,bright:1,until:'18:00',from:'07:00',to:'19:00',keep:14,init:0};
+const H=[1,2,4,8,12,0],p2=n=>String(n).padStart(2,'0');
 async function api(p,m){const r=await fetch(p,{method:m||'GET'});return r.json()}
-const dur=ms=>{const m=Math.floor(ms/60000);return m<1?'under 1 min':m<60?m+' min':Math.floor(m/60)+' h '+m%60+' min'}
-const clock=ms=>new Date(ms).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+const dur=ms=>{const m=Math.floor(ms/60000);return m<1?'under 1 min':m<60?m+' min':Math.floor(m/60)+' h '+m%60+' min'};
+const clock=ms=>new Date(ms).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+const esc=t=>t.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function endAt(){if(opt.hours>0)return Date.now()+opt.hours*3600000;const[a,b]=opt.until.split(':').map(Number);const d=new Date();d.setHours(a,b,0,0);if(d-Date.now()<60000)d.setDate(d.getDate()+1);return d.getTime()}
-function interval(){return Math.max(3,Math.min(300,Math.round((endAt()-Date.now())/1000/(opt.video*24))))}
-function chips(key,vals,labels){return '<div class="chips">'+vals.map((v,i)=>`<span class="chip ${opt[key]===v?'on':''}" onclick="setOpt('${key}',${JSON.stringify(v).replace(/"/g,"'")})">${labels[i]}</span>`).join('')+'</div>'}
-function setOpt(k,v){opt[k]=v;if(k==='hours'&&v===0&&!opt.untilSet){opt.untilSet=1}draw()}
-function home(){
-  const live=S.status!=='STOPPED', rec=S.status==='RECORDING';
-  let h='<h1>Timelapses</h1>';
-  const lux=S.lux<0?'–':Math.round(S.lux);
-  h+=`<div class="caps ${rec?'live':live||S.daily.on?'wait':''}">${rec?'● Recording':live?'Waiting for light':S.daily.on?'Daily on · next '+clock(S.daily.next):'Ready'}</div><div class="big">${lux}<span style="font-size:18px;color:var(--dim)"> lux</span></div><div class="bar"><i class="${S.lux>=1?'on':''}" style="width:${Math.min(100,Math.log10(1+Math.max(0,S.lux))/4*100)}%"></i><b style="left:${opt.bright?Math.log10(2)/4*100:0}%"></b></div>`;
+const ivFor=sec=>Math.max(3,Math.min(300,Math.round(sec/(opt.video*24))));
+function chips(key,vals,labels){return '<div class="chips">'+vals.map((v,i)=>`<span class="chip ${opt[key]===v?'on':''}" onclick="setOpt('${key}',${v})">${labels[i]}</span>`).join('')+'</div>'}
+function setOpt(k,v){opt[k]=v;drawSide(1)}
+
+/* ---------- left: new timelapse ---------- */
+function side(){
+  const live=S.status!=='STOPPED',rec=S.status==='RECORDING',daily=S.daily.on,dm=opt.mode===1;
+  const dark=opt.bright&&S.lux>=0&&S.lux<1;
+  const lightTxt=S.lux<0?'Measuring the light…':dark?'Too dark to film right now. It waits for light.':'Enough light to film ('+Math.round(S.lux)+' lux)';
+  let h=`<button class="back only-narrow" style="margin-bottom:18px" onclick="goHome()">‹ All timelapses</button><div class="caps ${rec?'live':live||daily?'wait':''}" style="min-height:14px;margin-bottom:10px">${rec?'● Recording':live?'Waiting for light':daily?'Daily on · next '+clock(S.daily.next):''}</div>`;
+  h+=`<h1>${live?'Filming':'New timelapse'}</h1><div class="light ${dark?'dark':''}">${lightTxt}</div><div class="bar"><i class="${S.lux>=1?'on':''}" style="width:${Math.min(100,Math.log10(1+Math.max(0,S.lux))/4*100)}%"></i><b style="left:${opt.bright?Math.log10(2)/4*100:0}%"></b></div>`;
   if(live){
     const left=S.endAt?S.endAt-S.now:0;
-    h+=`<div class="sum">${S.endAt?'Stops at '+clock(S.endAt):'Running'}<small>${S.count} photos so far${S.endAt?' · '+dur(Math.max(0,left))+' left':''}</small></div><p><button class="primary stop" onclick="ask('Stop this run?','The photos so far are kept, but this run cannot be continued. Daily runs still start on time.','Stop',stopRec)">Stop</button></p>`;
-  }else{
-    h+='<div class="caps">Schedule</div>'+chips('mode',[0,1],['Once','Every day']);
-    if(opt.mode===0){
-      h+='<div class="caps">How long</div>'+chips('hours',H,['1 h','2 h','4 h','8 h','12 h','Until']);
-      if(opt.hours===0)h+=`<p><input type="time" value="${opt.until}" onchange="opt.until=this.value;draw(1)"></p>`;
-    }else{
-      h+=`<div class="caps">Every day, from and to</div><p><input type="time" value="${opt.from}" ${S.daily.on?'disabled':''} onchange="opt.from=this.value;draw(1)"> &nbsp;→&nbsp; <input type="time" value="${opt.to}" ${S.daily.on?'disabled':''} onchange="opt.to=this.value;draw(1)"></p>`;
-    }
-    h+='<div class="caps">Video length</div>'+chips('video',[15,30,60],['15 s','30 s','1 min']);
-    h+='<div class="caps">Photos</div>'+chips('bright',[1,0],['Auto','Always']);
-    h+=`<p style="color:var(--dim);font-size:14px;margin-top:-12px">${opt.bright?'Takes a photo only when there is enough light to see something. A dim room lit by a screen counts.':'Takes a photo every time, even when it is dark.'}</p>`;
-    if(opt.mode===1)h+='<div class="caps">Keep old timelapses</div>'+chips('keep',[7,14,30],['7 days','14 days','30 days']);
-    if(opt.mode===0){
-      const iv=interval(),n=Math.floor((endAt()-Date.now())/1000/iv);
-      h+=`<div class="sum">A photo every ${iv} s<small>About ${n} photos · ${Math.max(1,Math.round(n/24))} s video · stops at ${clock(endAt())}</small></div><p><button class="primary" onclick="startRec()">Start</button></p>`;
-    }else{
-      const [fa,fb]=opt.from.split(':').map(Number),[ta,tb]=opt.to.split(':').map(Number);
-      let m=((ta*60+tb)-(fa*60+fb)+1440)%1440;if(!m)m=1440;
-      const iv=Math.max(3,Math.min(300,Math.round(m*60/(opt.video*24))));
-      h+=`<div class="sum">A photo every ${iv} s<small>Every day ${opt.from} → ${opt.to} · about ${Math.floor(m*60/iv)} photos · ${opt.video} s video · keeps ${opt.keep} days</small></div><p><button class="primary" onclick="setDaily(${S.daily.on?0:1})">${S.daily.on?'Turn off daily':'Turn on daily'}</button></p>`;
-    }
+    h+=`<div class="sum">${S.endAt?'Stops at '+clock(S.endAt):'Running'}<small>${S.count} photos so far${S.endAt?' · '+dur(Math.max(0,left))+' left':''}</small></div>`;
+    h+=`<button class="go stop" onclick="ask('Stop this run?','The photos so far are kept, but this run cannot be continued. Daily runs still start on time.','Stop',stopRec)">Stop</button>`;
+    return h;
   }
-  h+='<div class="card"></div>';
-  if(!S.sessions.length)h+='<p style="color:var(--dim)">Nothing here yet. Choose how long to record and press Start.</p>';
-  S.sessions.forEach(s=>{h+=`<div class="row" onclick="open_('${s.id}')"><img src="/api/thumb?s=${s.id}"><div><div class="n">${esc(s.name)}</div><div class="m">${s.count} photos · ${dur(s.end-s.start)}</div>${s.video?'<div class="tag">VIDEO READY</div>':''}</div></div>`});
+  if(!dm){
+    h+='<div class="grp"><div class="caps">Film for</div>'+chips('hours',H,['1 h','2 h','4 h','8 h','12 h','Until'])+'</div>';
+    if(opt.hours===0)h+=`<div class="grp"><input type="time" value="${opt.until}" onchange="opt.until=this.value;drawSide(1)"></div>`;
+  }else{
+    const d=daily?'disabled':'';
+    h+=`<div class="grp"><div class="caps">Film every day</div><div class="chips two"><input type="time" value="${opt.from}" ${d} onchange="opt.from=this.value;drawSide(1)"><input type="time" value="${opt.to}" ${d} onchange="opt.to=this.value;drawSide(1)"></div></div>`;
+  }
+  h+='<div class="grp"><div class="caps">Make a video of</div>'+chips('video',[15,30,60],['15 s','30 s','1 min'])+'</div>';
+  h+='<div class="grp"><div class="caps">Repeat</div>'+chips('mode',[0,1],['Just once','Every day'])+'</div>';
+  h+=`<details class="more" ${more?'open':''} ontoggle="more=this.open"><summary class="caps">More options</summary>`;
+  h+='<div class="grp"><div class="caps">Take photos</div>'+chips('bright',[1,0],['Only when bright','Always'])+`<p class="hint">${opt.bright?'Skips photos when it is too dark to see anything. A dim room lit by a screen counts as bright enough.':'Takes a photo every time, even in the dark.'}</p></div>`;
+  if(dm)h+='<div class="grp"><div class="caps">Delete daily timelapses after</div>'+chips('keep',[7,14,30],['7 days','14 days','30 days'])+'</div>';
+  h+='</details>';
+  if(!dm){
+    const e=endAt(),sec=(e-Date.now())/1000,iv=ivFor(sec),n=Math.floor(sec/iv);
+    h+=`<div class="sum">Films until ${clock(e)}, then makes a ${Math.max(1,Math.round(n/24))} s video.<small>A photo every ${iv} s, about ${n} photos.</small></div><button class="go" onclick="startRec()">Start filming</button>`;
+  }else{
+    const[fa,fb]=opt.from.split(':').map(Number),[ta,tb]=opt.to.split(':').map(Number);
+    let m=((ta*60+tb)-(fa*60+fb)+1440)%1440;if(!m)m=1440;
+    const iv=ivFor(m*60);
+    h+=`<div class="sum">Films ${opt.from} to ${opt.to}, then makes a ${opt.video} s video.<small>Runs by itself every day. A photo every ${iv} s, about ${Math.floor(m*60/iv)} photos.</small></div><button class="go ${daily?'quiet':''}" onclick="setDaily(${daily?0:1})">${daily?'Turn off daily':'Turn on daily'}</button>`;
+  }
   return h;
 }
-function esc(t){return t.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+/* ---------- right: library and one timelapse ---------- */
+function home(){
+  const n=sel.size;
+  let h=`<div class="head">${n?`<h2>${n} selected</h2><div class="acts"><button class="lnk" onclick="selAll()">Select all</button><button class="lnk red" onclick="delSel()">Delete</button><button class="lnk mute" onclick="sel.clear();drawMain(1)">Cancel</button></div>`
+    :`<h2>Timelapses</h2><button class="newbtn only-narrow" onclick="goNew()">${S.status!=='STOPPED'?'Filming…':'New timelapse'}</button><span class="caps">${S.sessions.length} saved</span>`}</div>`;
+  if(!S.sessions.length)return h+'<div class="empty">Nothing here yet. Choose how long to film on the left and press Start filming.</div>';
+  h+=`<div class="grid ${n?'picking':''}">`;
+  S.sessions.forEach(s=>{h+=`<div class="card ${sel.has(s.id)?'sel':''}" onclick="cardClick('${s.id}')"><span class="ck" onclick="event.stopPropagation();toggle('${s.id}')">${sel.has(s.id)?'✓':''}</span><img loading="lazy" src="/api/thumb?s=${s.id}"><div class="t"><div class="n">${esc(s.name)}</div><div class="m">${s.count} photos · ${dur(s.end-s.start)}</div>${s.video?'<div class="tag">VIDEO READY</div>':''}</div></div>`});
+  return h+'</div>';
+}
 function detail(){
   const s=S.sessions.find(x=>x.id===cur);if(!s){view='home';return home()}
-  const mine=S.videoSession===cur, busy=S.videoBusy&&mine;
+  const mine=S.videoSession===cur,busy=S.videoBusy&&mine;
   const note=mine&&S.videoText&&(busy||!s.video||S.videoText.startsWith('Saved'))?S.videoText:s.video?'Video ready.':'No video yet. It is built from these photos, 24 per second.';
   if(frames!==s.count){frames=s.count;frameIdx=-1}
   if(frameIdx<0)frameIdx=s.count-1;
-  let h=`<a class="back" onclick="view='home';draw()">‹ TIMELAPSES</a><h1 style="margin-top:20px;font-size:32px">${esc(s.name)}</h1><div class="caps" style="margin-bottom:20px">${s.count} photos · ${dur(s.end-s.start)}</div>`;
-  h+=`<img class="frame" id="fr" src="/api/frame?s=${s.id}&i=${frameIdx}"><input type="range" min="0" max="${s.count-1}" value="${frameIdx}" oninput="scrub(this.value)"><div class="caps" id="fl">Frame ${frameIdx+1} of ${s.count}</div>`;
-  h+=`<div class="card"><div class="caps">Video</div><p style="color:var(--dim);font-size:14px">${esc(note)}</p>`;
-  if(s.video)h+=`<video controls preload="metadata" src="/video/${s.id}.mp4"></video>`;
+  if(!tab||(tab==='video'&&!s.video))tab=s.video?'video':'photos';
+  let h=`<button class="back" onclick="goHome()">‹ All timelapses</button><div class="dgrid"><div>`;
+  h+=`<h2>${esc(s.name)}</h2><div class="caps" style="margin:6px 0 18px">${s.count} photos · ${dur(s.end-s.start)}</div>`;
+  if(s.video)h+=`<div class="tabs"><button class="tab ${tab==='video'?'on':''}" onclick="tab='video';drawMain(1)">Video</button><button class="tab ${tab==='photos'?'on':''}" onclick="tab='photos';drawMain(1)">Photos</button></div>`;
+  if(tab==='video')h+=`<div class="stage"><video controls autoplay loop preload="metadata" src="/video/${s.id}.mp4"></video></div>`;
+  else h+=`<div class="stage"><img id="fr" src="/api/frame?s=${s.id}&i=${frameIdx}"></div><input type="range" min="0" max="${s.count-1}" value="${frameIdx}" oninput="scrub(this.value)"><div class="caps" id="fl">Frame ${frameIdx+1} of ${s.count} · arrow keys to step</div>`;
+  h+=`</div><div class="side2"><div class="caps" style="margin:6px 0 10px">Video</div><p class="dim" style="font-size:14px;margin:0 0 8px">${esc(note)}</p>`;
   h+=`<button onclick="makeV('${s.id}')" ${S.videoBusy?'disabled':''}>${s.video?'Make video again':'Make video'}</button>`;
   if(busy)h+='<button onclick="api(\'/api/cancel\',\'POST\')">Cancel</button>';
-  if(s.video)h+=`<a class="btn" href="/video/${s.id}.mp4?dl=1">Download video</a>`;
-  h+=`<button onclick="rename('${s.id}')">Rename</button><button class="danger" onclick="del('${s.id}')">Delete timelapse</button></div>`;
+  if(s.video)h+=`<a href="/video/${s.id}.mp4?dl=1">Download video</a>`;
+  h+=`<button onclick="rename('${s.id}')">Rename</button><button class="danger" onclick="del('${s.id}')">Delete timelapse</button></div></div>`;
   return h;
 }
-let scrubT;function scrub(v){frameIdx=+v;$('#fl').textContent='Frame '+(frameIdx+1)+' of '+frames;clearTimeout(scrubT);scrubT=setTimeout(()=>{$('#fr').src=`/api/frame?s=${cur}&i=${frameIdx}`},60)}
-function open_(id){cur=id;view='detail';frames=0;frameIdx=-1;draw();scrollTo(0,0)}
-async function startRec(){await api(`/api/start?hours=${opt.hours}&video=${opt.video}&bright=${opt.bright}&h=${opt.until.split(':')[0]}&m=${opt.until.split(':')[1]}`,'POST');setTimeout(poll,1500)}
+let scrubT;function scrub(v){frameIdx=Math.max(0,Math.min(frames-1,+v));const r=$('input[type=range]');if(r)r.value=frameIdx;$('#fl').textContent='Frame '+(frameIdx+1)+' of '+frames+' · arrow keys to step';clearTimeout(scrubT);scrubT=setTimeout(()=>{$('#fr').src=`/api/frame?s=${cur}&i=${frameIdx}`},40)}
+function open_(id){location.hash='#/t/'+id}
+function goHome(){location.hash='#/'}
+function goNew(){location.hash='#/new'}
+function route(){const m=location.hash.match(/^#\/t\/(\w+)/);
+  if(m){if(cur!==m[1]||view!=='detail'){cur=m[1];view='detail';frames=0;frameIdx=-1;tab=''}}else view=location.hash==='#/new'?'new':'home';
+  document.body.dataset.v=view;drawSide(1);drawMain(1);scrollTo(0,0)}
+addEventListener('hashchange',route);
+function cardClick(id){sel.size?toggle(id):open_(id)}
+function toggle(id){sel.has(id)?sel.delete(id):sel.add(id);drawMain(1)}
+function selAll(){S.sessions.forEach(s=>sel.add(s.id));drawMain(1)}
+function delSel(){
+  const busy=S.status!=='STOPPED'?S.session:'',ids=[...sel].filter(i=>i!==busy),n=ids.length;if(!n)return;
+  ask(n===1?'Delete this timelapse?':'Delete '+n+' timelapses?','Their photos and videos are removed from the phone. This can\'t be undone.','Delete',async()=>{for(const i of ids)await api('/api/delete?s='+i,'POST');sel.clear();poll()});
+}
+
+/* ---------- actions ---------- */
+async function startRec(){await api(`/api/start?hours=${opt.hours}&video=${opt.video}&bright=${opt.bright}&h=${opt.until.split(':')[0]}&m=${opt.until.split(':')[1]}`,'POST');goHome();setTimeout(poll,1500)}
 async function setDaily(on){const f=opt.from.split(':'),t=opt.to.split(':');await api(`/api/daily?on=${on}&sh=${+f[0]}&sm=${+f[1]}&eh=${+t[0]}&em=${+t[1]}&video=${opt.video}&bright=${opt.bright}&keep=${opt.keep}`,'POST');setTimeout(poll,1500)}
 async function stopRec(){await api('/api/stop','POST');poll()}
 async function makeV(id){await api('/api/makevideo?s='+id,'POST');setTimeout(poll,800)}
 async function rename(id){const n=prompt('Name',S.sessions.find(x=>x.id===id).name);if(n!==null){await api('/api/rename?s='+id+'&name='+encodeURIComponent(n),'POST');poll()}}
-function del(id){ask('Delete this timelapse?','Its photos and video are removed from the phone. This can\'t be undone.','Delete',async()=>{await api('/api/delete?s='+id,'POST');view='home';poll()})}
-function ask(t,b,yes,fn){closeAsk();const d=document.createElement('div');d.id='sheet';d.innerHTML=`<div class="scrim" onclick="closeAsk()"></div><div class="drawer" role="dialog" aria-modal="true"><i></i><h2>${esc(t)}</h2><p>${esc(b)}</p><div class="two"><button class="keep" onclick="closeAsk()">Keep</button><button class="go" id="go">${esc(yes)}</button></div></div>`;document.body.appendChild(d);$('#go').onclick=()=>{closeAsk();fn()};requestAnimationFrame(()=>d.classList.add('on'))}
+function del(id){ask('Delete this timelapse?','Its photos and video are removed from the phone. This can\'t be undone.','Delete',async()=>{await api('/api/delete?s='+id,'POST');goHome();poll()})}
+function ask(t,b,yes,fn){closeAsk();const d=document.createElement('div');d.id='sheet';d.innerHTML=`<div class="scrim" onclick="closeAsk()"></div><div class="drawer" role="dialog" aria-modal="true"><i></i><h3>${esc(t)}</h3><p>${esc(b)}</p><div class="btns"><button class="keep" onclick="closeAsk()">Keep</button><button class="yes" id="yes">${esc(yes)}</button></div></div>`;document.body.appendChild(d);$('#yes').onclick=()=>{closeAsk();fn()};requestAnimationFrame(()=>d.classList.add('on'))}
 function closeAsk(){const d=$('#sheet');if(d)d.remove()}
-addEventListener('keydown',e=>{if(e.key==='Escape')closeAsk()})
-let last='';
-function draw(force){
+addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'&&e.target.type!=='range')return;
+  if(e.key==='Escape'){if($('#sheet'))closeAsk();else if(sel.size){sel.clear();drawMain(1)}else if(view==='detail')goHome()}
+  if(view==='detail'&&tab==='photos'&&(e.key==='ArrowLeft'||e.key==='ArrowRight')){e.preventDefault();scrub(frameIdx+(e.key==='ArrowRight'?1:-1))}
+});
+
+/* ---------- drawing: each pane redraws only when its own content changed ---------- */
+let lastSide='',lastMain='';
+function drawSide(force){
   if(!S)return;
-  const a=document.activeElement;if(a&&(a.tagName==='INPUT')&&!force)return;
-  const html=view==='home'?home():detail();
-  // keep the playing video and scrubber untouched when nothing changed
-  const key=html.replace(/<span class="big">.*?<\/span>/,'');
-  if(key===last&&!force)return;last=key;
-  $('#app').innerHTML=html;
+  const a=document.activeElement;if(a&&a.tagName==='INPUT'&&!force&&$('#side').contains(a))return;
+  const html=side();if(html===lastSide&&!force)return;lastSide=html;$('#side').innerHTML=html;
 }
-const p2=n=>String(n).padStart(2,'0');
-async function poll(){try{S=await api('/api/state');if(!opt.init){const d=S.daily;opt.init=1;opt.from=p2(d.sh)+':'+p2(d.sm);opt.to=p2(d.eh)+':'+p2(d.em);opt.video=d.video;opt.bright=d.bright?1:0;opt.keep=d.keep;if(d.on)opt.mode=1}draw()}catch(e){}}
-poll();setInterval(()=>{if(view==='home'||S&&(S.videoBusy||S.status!=='STOPPED'))poll()},2000);
+function drawMain(force){
+  if(!S)return;
+  const html=view==='detail'?detail():home();if(html===lastMain&&!force)return;lastMain=html;$('#main').innerHTML=html;
+}
+function draw(){drawSide();drawMain()}
+async function poll(){try{S=await api('/api/state');if(!opt.init){const d=S.daily;opt.init=1;opt.from=p2(d.sh)+':'+p2(d.sm);opt.to=p2(d.eh)+':'+p2(d.em);opt.video=d.video;opt.bright=d.bright?1:0;opt.keep=d.keep;if(d.on)opt.mode=1;route()}draw()}catch(e){}}
+poll();setInterval(()=>{if(view!=='detail'||S&&(S.videoBusy||S.status!=='STOPPED'))poll()},2000);
 setInterval(()=>{if(view==='detail')poll()},5000);
 </script></body></html>
