@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Timelapse</title>
+<style>
+:root{--bg:#0c0c0b;--tx:#f2efe8;--dim:#77736b;--line:#24231f;--amber:#ffb020;--red:#ff5a47}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 -apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:880px;margin:0 auto;padding:32px 24px 80px}
+h1{font-weight:200;font-size:40px;margin:0 0 24px}
+.caps{font-size:11px;letter-spacing:.18em;font-weight:700;color:var(--dim);text-transform:uppercase}
+.row{display:flex;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.row img{width:96px;height:96px;object-fit:cover;background:var(--line);border-radius:2px}
+.row .n{font-size:18px}.row .m{color:var(--dim);font-size:14px;margin-top:4px}
+.tag{color:var(--amber);font-size:11px;letter-spacing:.18em;font-weight:700;margin-top:6px}
+button,.btn{font:inherit;color:var(--tx);background:none;border:0;border-bottom:1px solid var(--line);width:100%;text-align:left;padding:16px 0;cursor:pointer;text-decoration:none;display:block}
+button:disabled{opacity:.35;cursor:default}
+.primary{background:var(--amber);color:var(--bg);font-weight:700;text-align:center;border:0;border-radius:30px;padding:16px 32px;width:auto;display:inline-block}
+.stop{background:var(--red);color:#fff}
+.danger{color:var(--red)}
+.chips{display:flex;gap:6px;margin:10px 0 22px;flex-wrap:wrap}
+.chip{padding:11px 18px;border-radius:10px;background:var(--line);cursor:pointer;user-select:none}
+.chip.on{background:var(--amber);color:var(--bg);font-weight:700}
+.big{font-size:80px;font-weight:200;line-height:1}
+.bar{height:4px;background:var(--line);border-radius:4px;position:relative;margin:10px 0 24px}
+.bar i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--dim)}
+.bar i.on{background:var(--amber)}.bar b{position:absolute;top:-7px;width:2px;height:18px;background:var(--tx)}
+.live{color:var(--red)}.wait{color:var(--amber)}
+.sum{color:var(--amber);font-size:18px}.sum small{display:block;color:var(--dim);font-size:14px;margin-top:4px}
+img.frame{width:100%;max-height:70vh;object-fit:contain;background:var(--line);display:block}
+video{width:100%;background:#000;margin-top:12px}
+input[type=range]{width:100%;accent-color:var(--amber);margin:14px 0 6px}
+input[type=number],input[type=time]{background:var(--line);color:var(--amber);border:0;border-radius:8px;padding:10px;font:inherit;width:100px}
+a.back{color:var(--dim);cursor:pointer;font-size:11px;letter-spacing:.18em;font-weight:700}
+.card{border-top:1px solid var(--line);padding-top:24px;margin-top:28px}
+</style></head><body><main id="app"></main>
+<script>
+const $=s=>document.querySelector(s);
+let S=null, view='home', cur=null, frames=0, frameIdx=-1, opt={mode:0,hours:4,video:30,bright:1,until:'18:00',from:'07:00',to:'19:00',keep:14,init:0};
+const H=[1,2,4,8,12,0];
+async function api(p,m){const r=await fetch(p,{method:m||'GET'});return r.json()}
+const dur=ms=>{const m=Math.floor(ms/60000);return m<1?'under 1 min':m<60?m+' min':Math.floor(m/60)+' h '+m%60+' min'}
+const clock=ms=>new Date(ms).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+function endAt(){if(opt.hours>0)return Date.now()+opt.hours*3600000;const[a,b]=opt.until.split(':').map(Number);const d=new Date();d.setHours(a,b,0,0);if(d-Date.now()<60000)d.setDate(d.getDate()+1);return d.getTime()}
+function interval(){return Math.max(3,Math.min(300,Math.round((endAt()-Date.now())/1000/(opt.video*24))))}
+function chips(key,vals,labels){return '<div class="chips">'+vals.map((v,i)=>`<span class="chip ${opt[key]===v?'on':''}" onclick="setOpt('${key}',${JSON.stringify(v).replace(/"/g,"'")})">${labels[i]}</span>`).join('')+'</div>'}
+function setOpt(k,v){opt[k]=v;if(k==='hours'&&v===0&&!opt.untilSet){opt.untilSet=1}draw()}
+function home(){
+  const live=S.status!=='STOPPED', rec=S.status==='RECORDING';
+  let h='<h1>Timelapses</h1>';
+  const lux=S.lux<0?'–':Math.round(S.lux);
+  h+=`<div class="caps ${rec?'live':live||S.daily.on?'wait':''}">${rec?'● Recording':live?'Waiting for light':S.daily.on?'Daily on · next '+clock(S.daily.next):'Ready'}</div><div class="big">${lux}<span style="font-size:18px;color:var(--dim)"> lux</span></div><div class="bar"><i class="${S.lux>=1?'on':''}" style="width:${Math.min(100,Math.log10(1+Math.max(0,S.lux))/4*100)}%"></i><b style="left:${opt.bright?Math.log10(2)/4*100:0}%"></b></div>`;
+  if(live){
+    const left=S.endAt?S.endAt-S.now:0;
+    h+=`<div class="sum">${S.endAt?'Stops at '+clock(S.endAt):'Running'}<small>${S.count} photos so far${S.endAt?' · '+dur(Math.max(0,left))+' left':''}</small></div><p><button class="primary stop" onclick="stopRec()">Stop</button></p>`;
+  }else{
+    h+='<div class="caps">Schedule</div>'+chips('mode',[0,1],['Once','Every day']);
+    if(opt.mode===0){
+      h+='<div class="caps">How long</div>'+chips('hours',H,['1 h','2 h','4 h','8 h','12 h','Until']);
+      if(opt.hours===0)h+=`<p><input type="time" value="${opt.until}" onchange="opt.until=this.value;draw(1)"></p>`;
+    }else{
+      h+=`<div class="caps">Every day, from and to</div><p><input type="time" value="${opt.from}" ${S.daily.on?'disabled':''} onchange="opt.from=this.value;draw(1)"> &nbsp;→&nbsp; <input type="time" value="${opt.to}" ${S.daily.on?'disabled':''} onchange="opt.to=this.value;draw(1)"></p>`;
+    }
+    h+='<div class="caps">Video length</div>'+chips('video',[15,30,60],['15 s','30 s','1 min']);
+    h+='<div class="caps">Photos</div>'+chips('bright',[1,0],['Auto','Always']);
+    h+=`<p style="color:var(--dim);font-size:14px;margin-top:-12px">${opt.bright?'Takes a photo only when there is enough light to see something. A dim room lit by a screen counts.':'Takes a photo every time, even when it is dark.'}</p>`;
+    if(opt.mode===1)h+='<div class="caps">Keep old timelapses</div>'+chips('keep',[7,14,30],['7 days','14 days','30 days']);
+    if(opt.mode===0){
+      const iv=interval(),n=Math.floor((endAt()-Date.now())/1000/iv);
+      h+=`<div class="sum">A photo every ${iv} s<small>About ${n} photos · ${Math.max(1,Math.round(n/24))} s video · stops at ${clock(endAt())}</small></div><p><button class="primary" onclick="startRec()">Start</button></p>`;
+    }else{
+      const [fa,fb]=opt.from.split(':').map(Number),[ta,tb]=opt.to.split(':').map(Number);
+      let m=((ta*60+tb)-(fa*60+fb)+1440)%1440;if(!m)m=1440;
+      const iv=Math.max(3,Math.min(300,Math.round(m*60/(opt.video*24))));
+      h+=`<div class="sum">A photo every ${iv} s<small>Every day ${opt.from} → ${opt.to} · about ${Math.floor(m*60/iv)} photos · ${opt.video} s video · keeps ${opt.keep} days</small></div><p><button class="primary" onclick="setDaily(${S.daily.on?0:1})">${S.daily.on?'Turn off daily':'Turn on daily'}</button></p>`;
+    }
+  }
+  h+='<div class="card"></div>';
+  if(!S.sessions.length)h+='<p style="color:var(--dim)">Nothing here yet. Choose how long to record and press Start.</p>';
+  S.sessions.forEach(s=>{h+=`<div class="row" onclick="open_('${s.id}')"><img src="/api/thumb?s=${s.id}"><div><div class="n">${esc(s.name)}</div><div class="m">${s.count} photos · ${dur(s.end-s.start)}</div>${s.video?'<div class="tag">VIDEO READY</div>':''}</div></div>`});
+  return h;
+}
+function esc(t){return t.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function detail(){
+  const s=S.sessions.find(x=>x.id===cur);if(!s){view='home';return home()}
+  const mine=S.videoSession===cur, busy=S.videoBusy&&mine;
+  const note=mine&&S.videoText&&(busy||!s.video||S.videoText.startsWith('Saved'))?S.videoText:s.video?'Video ready.':'No video yet. It is built from these photos, 24 per second.';
+  if(frames!==s.count){frames=s.count;frameIdx=-1}
+  if(frameIdx<0)frameIdx=s.count-1;
+  let h=`<a class="back" onclick="view='home';draw()">‹ TIMELAPSES</a><h1 style="margin-top:20px;font-size:32px">${esc(s.name)}</h1><div class="caps" style="margin-bottom:20px">${s.count} photos · ${dur(s.end-s.start)}</div>`;
+  h+=`<img class="frame" id="fr" src="/api/frame?s=${s.id}&i=${frameIdx}"><input type="range" min="0" max="${s.count-1}" value="${frameIdx}" oninput="scrub(this.value)"><div class="caps" id="fl">Frame ${frameIdx+1} of ${s.count}</div>`;
+  h+=`<div class="card"><div class="caps">Video</div><p style="color:var(--dim);font-size:14px">${esc(note)}</p>`;
+  if(s.video)h+=`<video controls preload="metadata" src="/video/${s.id}.mp4"></video>`;
+  h+=`<button onclick="makeV('${s.id}')" ${S.videoBusy?'disabled':''}>${s.video?'Make video again':'Make video'}</button>`;
+  if(busy)h+='<button onclick="api(\'/api/cancel\',\'POST\')">Cancel</button>';
+  if(s.video)h+=`<a class="btn" href="/video/${s.id}.mp4?dl=1">Download video</a>`;
+  h+=`<button onclick="rename('${s.id}')">Rename</button><button class="danger" onclick="del('${s.id}')">Delete timelapse</button></div>`;
+  return h;
+}
+let scrubT;function scrub(v){frameIdx=+v;$('#fl').textContent='Frame '+(frameIdx+1)+' of '+frames;clearTimeout(scrubT);scrubT=setTimeout(()=>{$('#fr').src=`/api/frame?s=${cur}&i=${frameIdx}`},60)}
+function open_(id){cur=id;view='detail';frames=0;frameIdx=-1;draw();scrollTo(0,0)}
+async function startRec(){await api(`/api/start?hours=${opt.hours}&video=${opt.video}&bright=${opt.bright}&h=${opt.until.split(':')[0]}&m=${opt.until.split(':')[1]}`,'POST');setTimeout(poll,1500)}
+async function setDaily(on){const f=opt.from.split(':'),t=opt.to.split(':');await api(`/api/daily?on=${on}&sh=${+f[0]}&sm=${+f[1]}&eh=${+t[0]}&em=${+t[1]}&video=${opt.video}&bright=${opt.bright}&keep=${opt.keep}`,'POST');setTimeout(poll,1500)}
+async function stopRec(){await api('/api/stop','POST');poll()}
+async function makeV(id){await api('/api/makevideo?s='+id,'POST');setTimeout(poll,800)}
+async function rename(id){const n=prompt('Name',S.sessions.find(x=>x.id===id).name);if(n!==null){await api('/api/rename?s='+id+'&name='+encodeURIComponent(n),'POST');poll()}}
+async function del(id){if(confirm('Delete this timelapse and its video from the phone?')){await api('/api/delete?s='+id,'POST');view='home';poll()}}
+let last='';
+function draw(force){
+  if(!S)return;
+  const a=document.activeElement;if(a&&(a.tagName==='INPUT')&&!force)return;
+  const html=view==='home'?home():detail();
+  // keep the playing video and scrubber untouched when nothing changed
+  const key=html.replace(/<span class="big">.*?<\/span>/,'');
+  if(key===last&&!force)return;last=key;
+  $('#app').innerHTML=html;
+}
+const p2=n=>String(n).padStart(2,'0');
+async function poll(){try{S=await api('/api/state');if(!opt.init){const d=S.daily;opt.init=1;opt.from=p2(d.sh)+':'+p2(d.sm);opt.to=p2(d.eh)+':'+p2(d.em);opt.video=d.video;opt.bright=d.bright?1:0;opt.keep=d.keep;if(d.on)opt.mode=1}draw()}catch(e){}}
+poll();setInterval(()=>{if(view==='home'||S&&(S.videoBusy||S.status!=='STOPPED'))poll()},2000);
+setInterval(()=>{if(view==='detail')poll()},5000);
+</script></body></html>
